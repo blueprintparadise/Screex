@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "screex"
+version = "0.1.0"
+description = "Screen-recording understanding: turn a screencast into a queryable index of UI states for transcripts, Q&A, and how-to / bug-report generation."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [{ name = "Rushikesh Hiray", email = "rhiray03@gmail.com" }]
+keywords = [
+    "screen-recording",
+    "screencast",
+    "ocr",
+    "llm",
+    "claude",
+    "claude-skill",
+    "agents",
+    "video-understanding",
+    "ui-understanding",
+]
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Topic :: Multimedia :: Video",
+    "Topic :: Scientific/Engineering :: Image Recognition",
+]
+dependencies = [
+    "opencv-python",
+    "numpy",
+    "rapidocr-onnxruntime",
+]
+
+[project.optional-dependencies]
+test = ["pytest"]
+
+[project.scripts]
+screex = "screex.cli:main"
+
+[tool.setuptools]
+packages = ["screex", "screex.core"]
