@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/assets/logo.jpg" alt="Screex — screen recordings to LLM-ready" width="320">
+</p>
+
 # Screex
 
 **Screen-recording understanding for agents.** Screex turns a screencast into a queryable
