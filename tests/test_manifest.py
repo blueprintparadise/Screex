@@ -1,4 +1,4 @@
-from screex.core.manifest import FrameRecord, EventRecord, Manifest
+from screex.core.manifest import EventRecord, FrameRecord, Manifest
 
 
 def test_manifest_roundtrip(tmp_path):

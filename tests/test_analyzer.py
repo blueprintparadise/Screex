@@ -1,4 +1,5 @@
 import numpy as np
+
 from screex.core import analyzer
 from screex.core.manifest import EventRecord
 
@@ -40,8 +41,10 @@ def test_histogram_similarity_black_vs_white_is_zero():
 def test_histogram_similarity_same_distribution_stays_high():
     # identical intensity distribution, different spatial layout -> high similarity
     # (orthogonal to motion: pixels moved, histogram unchanged)
-    a = np.zeros((8, 8), dtype=np.uint8); a[:, :4] = 200
-    b = np.zeros((8, 8), dtype=np.uint8); b[:, 4:] = 200
+    a = np.zeros((8, 8), dtype=np.uint8)
+    a[:, :4] = 200
+    b = np.zeros((8, 8), dtype=np.uint8)
+    b[:, 4:] = 200
     assert analyzer.histogram_similarity(a, b) > 0.9
 
 

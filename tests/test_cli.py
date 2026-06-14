@@ -57,3 +57,44 @@ def test_index_builds_states_with_ocr(screencast_video, tmp_path):
     assert any(word in all_text for word in ("settings", "save", "open", "changes"))
     # a later state registers newly-appeared text
     assert any(s.text_added for s in si.states[1:])
+    # schema version is written
+    assert si.schema_version >= 1
+
+
+def test_index_merges_duplicate_text_states(dup_text_video, tmp_path):
+    from screex.cli import index
+    from screex.core.index import ScreenIndex
+
+    out = tmp_path / "work_dup"
+    index_path = index(str(dup_text_video), fps=4.0, change_threshold=0.03, out=str(out))
+    si = ScreenIndex.load(index_path)
+    # two visual segments, identical text -> merged into a single state
+    assert len(si.states) == 1
+    assert si.states[0].t_end >= si.states[0].t_start
+
+
+def test_index_jpg_keyframes_and_clean_rerun(screencast_video, tmp_path):
+    from screex.cli import index
+
+    out = tmp_path / "work_jpg"
+    index(str(screencast_video), fps=4.0, change_threshold=0.03, out=str(out),
+          keyframe_format="jpg")
+    jpgs = list((out / "frames").glob("*.jpg"))
+    assert jpgs, "expected jpg keyframes"
+    assert not list((out / "frames").glob("*.png"))
+
+    # re-run must not leave stale files from the previous run behind
+    index(str(screencast_video), fps=4.0, change_threshold=0.03, out=str(out),
+          keyframe_format="png")
+    assert not list((out / "frames").glob("*.jpg"))
+
+
+def test_index_empty_video_raises(tmp_path):
+    import pytest
+
+    from screex.cli import index
+
+    bogus = tmp_path / "empty.mp4"
+    bogus.write_bytes(b"not a video")
+    with pytest.raises((ValueError, FileNotFoundError)):
+        index(str(bogus), out=str(tmp_path / "o"))

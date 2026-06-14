@@ -1,4 +1,3 @@
-opencv-python
-numpy
-rapidocr-onnxruntime
-pytest
+# Convenience for contributors: installs Screex (editable) with dev tooling
+# (pytest, ruff, mss). Runtime/test deps are the source of truth in pyproject.toml.
+-e .[dev]

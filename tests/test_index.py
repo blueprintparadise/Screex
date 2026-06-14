@@ -1,4 +1,4 @@
-from screex.core.index import ScreenState, ScreenIndex
+from screex.core.index import ScreenIndex, ScreenState
 
 
 def test_screen_index_roundtrip(tmp_path):

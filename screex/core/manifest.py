@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass, asdict, field
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
 
@@ -45,7 +45,7 @@ class Manifest:
         }
 
     @classmethod
-    def from_dict(cls, d: dict) -> "Manifest":
+    def from_dict(cls, d: dict) -> Manifest:
         return cls(
             video=d["video"],
             duration=d["duration"],
@@ -59,5 +59,5 @@ class Manifest:
         Path(path).write_text(json.dumps(self.to_dict(), indent=2), encoding="utf-8")
 
     @classmethod
-    def load(cls, path) -> "Manifest":
+    def load(cls, path) -> Manifest:
         return cls.from_dict(json.loads(Path(path).read_text(encoding="utf-8")))

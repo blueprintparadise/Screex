@@ -1,5 +1,6 @@
-import numpy as np
 import cv2
+import numpy as np
+
 from screex.core import ocr
 
 
@@ -22,3 +23,23 @@ def test_text_diff_empty_prev():
     added, removed = ocr.text_diff([], ["x", "y"])
     assert added == ["x", "y"]
     assert removed == []
+
+
+def test_text_diff_ignores_ocr_noise():
+    # Same line, minor OCR noise (casing, stray glyph, punctuation) -> no spurious diff.
+    added, removed = ocr.text_diff(["Open Settings"], ["open  settings!"])
+    assert added == []
+    assert removed == []
+
+
+def test_text_diff_preserves_order_and_duplicates():
+    added, removed = ocr.text_diff(["a"], ["b", "c", "b"])
+    assert added == ["b", "c", "b"]
+    assert removed == ["a"]
+
+
+def test_text_similarity():
+    assert ocr.text_similarity([], []) == 1.0
+    assert ocr.text_similarity(["a"], []) == 0.0
+    assert ocr.text_similarity(["Open Settings"], ["open settings"]) == 1.0
+    assert 0.0 < ocr.text_similarity(["a", "b"], ["b", "c"]) < 1.0
