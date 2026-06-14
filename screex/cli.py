@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
+from screex import __version__
 from screex.core import source, mapper, analyzer
 from screex.core.manifest import Manifest, FrameRecord
 
@@ -98,6 +99,7 @@ def index(recording, fps=2.0, change_threshold=0.04, thumb_width=320, out=None):
 
 def main(argv=None):
     p = argparse.ArgumentParser(prog="screex")
+    p.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     sub = p.add_subparsers(dest="cmd", required=True)
 
     a = sub.add_parser("analyze", help="analyze a video into ASCII frames + manifest")
@@ -124,6 +126,14 @@ def main(argv=None):
     c.add_argument("--seconds", type=float, default=10.0)
     c.add_argument("--out", default="capture.mp4")
 
+    sk = sub.add_parser("skill", help="install or locate the Screex Claude skill (SKILL.md)")
+    sk.add_argument("--install", action="store_true",
+                    help="copy the bundled SKILL.md into the skills dir (default action)")
+    sk.add_argument("--dir", default=None,
+                    help="target skills dir (default ~/.claude/skills/screex)")
+    sk.add_argument("--path", action="store_true",
+                    help="print the install target path without writing")
+
     args = p.parse_args(argv)
     if args.cmd == "analyze":
         path = analyze(args.video, fps=args.fps, cols=args.cols,
@@ -137,6 +147,14 @@ def main(argv=None):
     elif args.cmd == "capture":
         out = source.capture_webcam(args.out, args.seconds)
         print(f"captured: {out}")
+    elif args.cmd == "skill":
+        from screex import skill as skill_mod
+        target_dir = Path(args.dir) if args.dir else skill_mod.default_skill_dir()
+        if args.path:
+            print(target_dir / "SKILL.md")
+        else:
+            target = skill_mod.install_skill(args.dir)
+            print(f"installed skill: {target}")
 
 
 if __name__ == "__main__":

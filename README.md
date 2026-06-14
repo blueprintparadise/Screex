@@ -14,22 +14,20 @@ action transcript, answer questions, or generate a how-to guide / bug report fro
 
 ## Install
 
-### From source (recommended while pre-release)
+### From PyPI
+```bash
+pip install screex
+```
+
+### From source
 ```bash
 git clone <your-repo-url> screex
 cd screex
-pip install -e .
+pip install -e .          # add ".[test]" to also install pytest
 ```
-`pip install -e .` installs the package and a `screex` command (entry point
-`screex.cli:main`). To run tests too: `pip install -e ".[test]"`.
 
-### Just the dependencies
-```bash
-pip install -r requirements.txt
-```
-Then call the module directly: `python -m screex.cli ...`.
-
-Requires Python ≥ 3.9. First run downloads the small RapidOCR ONNX models automatically.
+Both give you a `screex` command (entry point `screex.cli:main`). Requires Python ≥ 3.9.
+First run downloads the small RapidOCR ONNX models automatically.
 
 ---
 
@@ -74,12 +72,12 @@ views: an **action transcript**, **Q&A** over the recording, or a **how-to / bug
 
 1. **Install the package** so `python -m screex.cli` is available in the environment Claude
    uses (`pip install -e .`).
-2. **Install the skill** by placing `SKILL.md` where Claude Code discovers skills:
-   - **User-wide:** `~/.claude/skills/screex/SKILL.md`
-   - **Per project:** `<project>/.claude/skills/screex/SKILL.md`
+2. **Install the skill** — the package bundles `SKILL.md`, so one command installs it where
+   Claude Code discovers skills:
    ```bash
-   mkdir -p ~/.claude/skills/screex
-   cp SKILL.md ~/.claude/skills/screex/SKILL.md
+   screex skill --install                                          # ~/.claude/skills/screex/
+   screex skill --install --dir <project>/.claude/skills/screex    # per-project
+   screex skill --path                                             # just print the target path
    ```
 3. **Use it** — in Claude Code, just ask in natural language, e.g.:
    - *"Use screex to turn `~/Downloads/bug-repro.mp4` into a bug report."*

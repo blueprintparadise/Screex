@@ -41,3 +41,7 @@ screex = "screex.cli:main"
 
 [tool.setuptools]
 packages = ["screex", "screex.core"]
+include-package-data = true
+
+[tool.setuptools.package-data]
+screex = ["SKILL.md"]
