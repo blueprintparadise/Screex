@@ -1,0 +1,59 @@
+from screex.cli import analyze
+from screex.core.manifest import Manifest
+
+
+def test_analyze_produces_manifest_and_files(moving_square_video, tmp_path):
+    out = tmp_path / "work"
+    manifest_path = analyze(
+        str(moving_square_video), fps=5.0, cols=40,
+        sensitivity=0.01, edge=False, out=str(out),
+    )
+    assert manifest_path.exists()
+
+    m = Manifest.load(manifest_path)
+    assert m.video == moving_square_video.name
+    assert len(m.frames) >= 1
+    # the moving square creates motion -> at least one event
+    assert len(m.events) >= 1
+
+    # every referenced artifact exists on disk
+    for fr in m.frames:
+        assert (out / fr.png).exists()
+        assert (out / fr.ascii).exists()
+    # first frame has zero motion score by construction
+    assert m.frames[0].score == 0.0
+
+
+def test_analyze_events_have_type(moving_square_video, tmp_path):
+    out = tmp_path / "work_typed"
+    manifest_path = analyze(
+        str(moving_square_video), fps=5.0, cols=40,
+        sensitivity=0.01, edge=False, out=str(out),
+    )
+    m = Manifest.load(manifest_path)
+    assert len(m.events) >= 1
+    for e in m.events:
+        assert e.type in {"cut", "motion"}
+        assert 0.0 <= e.confidence <= 1.0
+
+
+def test_index_builds_states_with_ocr(screencast_video, tmp_path):
+    from screex.cli import index
+    from screex.core.index import ScreenIndex
+
+    out = tmp_path / "work_index"
+    index_path = index(str(screencast_video), fps=4.0, change_threshold=0.03, out=str(out))
+    assert index_path.exists()
+
+    si = ScreenIndex.load(index_path)
+    assert si.video == screencast_video.name
+    assert len(si.states) >= 2
+
+    for s in si.states:
+        assert (out / s.thumbnail).exists()
+        assert (out / s.keyframe).exists()
+
+    all_text = " ".join(" ".join(s.ocr_text) for s in si.states).lower()
+    assert any(word in all_text for word in ("settings", "save", "open", "changes"))
+    # a later state registers newly-appeared text
+    assert any(s.text_added for s in si.states[1:])

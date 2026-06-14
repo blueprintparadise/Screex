@@ -1,0 +1,10 @@
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Generated artifacts
+*.squint/
+*.screex/
+demo.avi
+capture.mp4

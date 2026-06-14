@@ -1,0 +1,4 @@
+opencv-python
+numpy
+rapidocr-onnxruntime
+pytest
