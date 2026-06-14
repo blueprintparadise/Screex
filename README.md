@@ -53,12 +53,19 @@ path/to/recording.screex/
 | Flag | Default | Meaning |
 |------|---------|---------|
 | `--fps` | `2` | frames sampled per second (raise for fast-moving recordings) |
-| `--change-threshold` | `0.04` | visual-change fraction (0–1) that starts a new UI state — lower = more states, higher = fewer |
+| `--change-threshold` | `0.04` | mean frame-to-frame intensity change (0–1) that starts a new UI state; also fires on cumulative drift from the state's anchor frame (catches slow scrolls/fades). Lower = more states, higher = fewer |
+| `--dedupe-threshold` | `0.95` | merge consecutive states whose on-screen text is at least this similar (0–1); set `>1` to disable |
 | `--thumb-width` | `320` | thumbnail width in px |
+| `--keyframe-format` | `png` | `png` (lossless) or `jpg` (much smaller) for keyframes/thumbnails |
+| `--keyframe-quality` | `90` | JPEG quality (only used with `jpg`) |
+| `--max-frames` | _none_ | cap sampled frames (guardrail for long/high-res recordings) |
+| `--lang` | _auto_ | OCR language hint |
 | `--out` | `<recording>.screex` | output directory |
+| `-q, --quiet` | off | suppress progress output (place before the subcommand) |
 
 ### What `index.json` contains
-An ordered list of `states`, each with:
+A `schema_version`, the source `video`/`duration`/`sampled_fps`, and an ordered list of
+`states`, each with:
 `t_start` / `t_end`, `ocr_text` (on-screen text lines), `text_added` / `text_removed`
 (text that appeared/disappeared vs the previous state — the strongest signal of what the user
 did), and `thumbnail` / `keyframe` paths.

@@ -16,8 +16,16 @@ For each clip, ask Claude (via the skill) the event question and record whether 
 
 ## Cost (the number that matters)
 Run two conditions on the same clips and compare total input tokens:
-- **Squint path:** the SKILL.md loop (manifest + ASCII skim + a few escalated PNGs).
-- **Baseline:** `Read` every sampled PNG as an image, no ASCII.
+- **Screex path:** read on-screen text across states + a few escalated keyframes.
+- **Baseline:** `Read` every sampled frame as an image.
 
-Record tokens for each. The win is the ratio (Squint tokens / baseline tokens) at equal or
-better accuracy. Log results in a table here as you run them.
+A runnable harness estimates this for any recording:
+
+```bash
+python scripts/eval.py path/to/recording.mp4 --fps 2 --escalate 3
+```
+
+It prints states, on-screen-text tokens, escalated-image tokens, the baseline
+(every-frame-as-image) token cost, and the **cost ratio** (Screex / baseline). The token
+numbers are coarse estimates for *relative* comparison, not billing accuracy. The win is a
+low ratio at equal or better accuracy. Log results in a table here as you run them.

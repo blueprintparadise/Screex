@@ -40,3 +40,24 @@ def screencast_video(tmp_path):
             vw.write(frame)
     vw.release()
     return path
+
+
+@pytest.fixture
+def dup_text_video(tmp_path):
+    """Two visually-distinct segments (different bg tint) that show the SAME text, so the
+    change detector fires but the on-screen text is identical -> dedup should merge them."""
+    import cv2
+    import numpy as np
+
+    path = tmp_path / "dup.avi"
+    w, h, fps = 360, 240, 4
+    vw = cv2.VideoWriter(str(path), cv2.VideoWriter_fourcc(*"MJPG"), fps, (w, h))
+    assert vw.isOpened(), "MJPG VideoWriter failed to open"
+    for bg in ((255, 255, 255), (200, 210, 255)):
+        for _ in range(6):
+            frame = np.full((h, w, 3), bg, dtype=np.uint8)
+            cv2.putText(frame, "Open Settings", (15, 130),
+                        cv2.FONT_HERSHEY_SIMPLEX, 1.3, (0, 0, 0), 3)
+            vw.write(frame)
+    vw.release()
+    return path

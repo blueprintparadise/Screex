@@ -1,4 +1,5 @@
 import numpy as np
+
 from screex.core import segment
 
 
@@ -26,3 +27,12 @@ def test_segment_stream_single_state_when_static():
     assert len(segs) == 1
     assert segs[0].t_start == 0.0
     assert segs[0].t_end == 3.0
+
+
+def test_segment_stream_splits_on_slow_drift():
+    # A gradual ramp: each step is small (~10/255 ≈ 0.039 < threshold) so per-frame
+    # motion never fires, but cumulative drift from the anchor must eventually split.
+    seq = [(float(i), i * 10) for i in range(12)]  # 0,10,...,110
+    threshold = 0.1  # ~25.5 gray levels; no single step reaches it
+    segs = list(segment.segment_stream(_frames(seq), change_threshold=threshold))
+    assert len(segs) >= 2  # drift detection split the slow change
