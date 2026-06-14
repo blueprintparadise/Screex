@@ -39,6 +39,11 @@ test = ["pytest"]
 [project.scripts]
 screex = "screex.cli:main"
 
+[project.urls]
+Homepage = "https://github.com/blueprintparadise/Screex"
+Repository = "https://github.com/blueprintparadise/Screex"
+Issues = "https://github.com/blueprintparadise/Screex/issues"
+
 [tool.setuptools]
 packages = ["screex", "screex.core"]
 include-package-data = true

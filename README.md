@@ -21,8 +21,8 @@ pip install screex
 
 ### From source
 ```bash
-git clone <your-repo-url> screex
-cd screex
+git clone https://github.com/blueprintparadise/Screex.git
+cd Screex
 pip install -e .          # add ".[test]" to also install pytest
 ```
 
