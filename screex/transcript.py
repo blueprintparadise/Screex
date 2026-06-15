@@ -23,6 +23,10 @@ def format_transcript(screen_index) -> str:
             lines.append(f"**Appeared:** {', '.join(st.text_added)}")
         if st.text_removed:
             lines.append(f"**Gone:** {', '.join(st.text_removed)}")
+        for it in getattr(st, "interactions", None) or []:
+            label = it.get("label")
+            where = f" near “{label}”" if label else ""
+            lines.append(f"👆 interacted{where} (≈{int(it['x'])},{int(it['y'])})")
         spoken = _narration_for(getattr(screen_index, "narration", None) or [], st.t_start, st.t_end)
         if spoken:
             lines.append(f"🗣 said: {spoken}")

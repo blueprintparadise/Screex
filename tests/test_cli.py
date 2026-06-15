@@ -13,6 +13,53 @@ def test_cli_rejects_invalid_numeric_flags(capsys):
     assert "fps must be greater than 0" in err
 
 
+def test_capture_rejects_multiple_sources():
+    import pytest
+
+    from screex.cli import main
+
+    with pytest.raises(SystemExit):
+        main(["capture", "--screen", "--webcam"])
+
+
+def test_capture_screen_passes_controls(monkeypatch, capsys):
+    from screex.cli import main
+    from screex.core import source
+
+    calls = []
+    monkeypatch.setattr(
+        source,
+        "capture_screen",
+        lambda out, seconds, fps=10.0, monitor=1: calls.append(
+            (out, seconds, fps, monitor)
+        ) or out,
+    )
+
+    main(["capture", "--screen", "--seconds", "2.5", "--fps", "12", "--monitor", "2",
+          "--out", "screen.mp4"])
+
+    assert calls == [("screen.mp4", 2.5, 12.0, 2)]
+    assert "captured: screen.mp4" in capsys.readouterr().out
+
+
+def test_capture_webcam_passes_controls_by_default(monkeypatch):
+    from screex.cli import main
+    from screex.core import source
+
+    calls = []
+    monkeypatch.setattr(
+        source,
+        "capture_webcam",
+        lambda out, seconds, fps=15.0, device=0: calls.append(
+            (out, seconds, fps, device)
+        ) or out,
+    )
+
+    main(["capture", "--seconds", "1", "--device", "3", "--out", "cam.mp4"])
+
+    assert calls == [("cam.mp4", 1.0, 15.0, 3)]
+
+
 def test_clean_frames_dir_refuses_user_files(tmp_path):
     import pytest
 
@@ -139,6 +186,46 @@ def test_index_empty_video_raises(tmp_path):
         index(str(bogus), out=str(tmp_path / "o"))
 
 
+def test_index_with_boxes(screencast_video, tmp_path):
+    from screex.cli import index
+    from screex.core.index import ScreenIndex
+
+    out = tmp_path / "work_boxes"
+    index_path = index(str(screencast_video), fps=4.0, out=str(out), boxes=True, audio=False)
+    si = ScreenIndex.load(index_path)
+    assert any(s.boxes for s in si.states), "expected at least one state with boxes"
+    for s in si.states:
+        for b in s.boxes:
+            assert "text" in b and "box" in b
+            assert len(b["box"]) == 4
+
+
+def test_index_redacts_secret(secret_video, tmp_path):
+    from screex.cli import index
+    from screex.core.index import ScreenIndex
+
+    out = tmp_path / "work_redact"
+    index_path = index(str(secret_video), fps=4.0, out=str(out), redact=True, audio=False)
+    si = ScreenIndex.load(index_path)
+    all_text = " ".join(" ".join(s.ocr_text) for s in si.states)
+    assert "rushi@acme.io" not in all_text
+    assert "REDACTED" in all_text
+
+
+def test_index_interactions_label(screencast_video, tmp_path):
+    from screex.cli import index
+    from screex.core.index import ScreenIndex
+
+    out = tmp_path / "work_interactions"
+    index_path = index(str(screencast_video), fps=4.0, out=str(out),
+                       interactions=True, audio=False)
+    si = ScreenIndex.load(index_path)
+    # interactions are heuristic; assert the field is well-formed when present
+    for s in si.states:
+        for it in s.interactions:
+            assert {"t", "x", "y", "label"} <= set(it.keys())
+
+
 def test_transcript_cli_writes_markdown(screencast_video, tmp_path):
     from screex.cli import main
 
@@ -147,6 +234,33 @@ def test_transcript_cli_writes_markdown(screencast_video, tmp_path):
     text = out_md.read_text(encoding="utf-8")
     assert text.startswith("# Transcript")
     assert "State 1" in text
+
+
+def test_transcript_cli_from_index_does_not_need_recording(tmp_path):
+    from screex.cli import main
+    from screex.core.index import ScreenIndex, ScreenState
+
+    idx = tmp_path / "index.json"
+    out_md = tmp_path / "steps.md"
+    ScreenIndex(
+        video="cast.mp4",
+        duration=1.0,
+        sampled_fps=2.0,
+        states=[ScreenState(0, 0.0, 1.0, "t.png", "k.png", ocr_text=["Ready"])],
+    ).save(idx)
+
+    main(["transcript", "--from-index", str(idx), "-o", str(out_md)])
+
+    assert "Ready" in out_md.read_text(encoding="utf-8")
+
+
+def test_transcript_cli_requires_recording_without_index():
+    import pytest
+
+    from screex.cli import main
+
+    with pytest.raises(SystemExit):
+        main(["transcript"])
 
 
 def test_slow_warning_logic():

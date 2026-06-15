@@ -43,6 +43,27 @@ def screencast_video(tmp_path):
 
 
 @pytest.fixture
+def secret_video(tmp_path):
+    """A two-state screencast where the second state shows an email address, so --redact
+    has something concrete to mask and blur."""
+    import cv2
+    import numpy as np
+
+    path = tmp_path / "secret.avi"
+    w, h, fps = 480, 240, 4
+    vw = cv2.VideoWriter(str(path), cv2.VideoWriter_fourcc(*"MJPG"), fps, (w, h))
+    assert vw.isOpened(), "MJPG VideoWriter failed to open"
+    states = [((255, 255, 255), "Open Account"), ((255, 255, 255), "rushi@acme.io")]
+    for bg, text in states:
+        for _ in range(6):
+            frame = np.full((h, w, 3), bg, dtype=np.uint8)
+            cv2.putText(frame, text, (15, 130), cv2.FONT_HERSHEY_SIMPLEX, 1.1, (0, 0, 0), 3)
+            vw.write(frame)
+    vw.release()
+    return path
+
+
+@pytest.fixture
 def dup_text_video(tmp_path):
     """Two visually-distinct segments (different bg tint) that show the SAME text, so the
     change detector fires but the on-screen text is identical -> dedup should merge them."""

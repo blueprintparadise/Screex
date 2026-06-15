@@ -25,14 +25,15 @@ def _get_engine(lang=None, threads=2):
     return engine
 
 
-def extract_text(
+def extract_text_boxes(
     bgr,
     lang: str | None = None,
     threads: int = 2,
     diagnostics: list[str] | None = None,
-) -> list[str]:
-    """Return on-screen text lines from a BGR frame, in reading order
-    (top->bottom, left->right). The vertical bucket is scaled to the frame height so
+) -> list:
+    """Return on-screen text as ``[{"text": str, "box": [x, y, w, h]}, ...]`` in reading
+    order (top->bottom, left->right). ``box`` is the integer bounding rectangle of the
+    detected text region (pixels). The vertical bucket is scaled to the frame height so
     reading order is stable across resolutions."""
     engine = _get_engine(lang, threads)
     try:
@@ -55,7 +56,32 @@ def extract_text(
         return (round(min(ys) / bucket), min(xs))
 
     ordered = sorted(result, key=sort_key)
-    return [str(item[1]).strip() for item in ordered if str(item[1]).strip()]
+    out = []
+    for item in ordered:
+        text = str(item[1]).strip()
+        if not text:
+            continue
+        pts = item[0]
+        xs = [float(p[0]) for p in pts]
+        ys = [float(p[1]) for p in pts]
+        x0, y0 = int(min(xs)), int(min(ys))
+        w, h = int(max(xs) - min(xs)), int(max(ys) - min(ys))
+        out.append({"text": text, "box": [x0, y0, max(0, w), max(0, h)]})
+    return out
+
+
+def extract_text(
+    bgr,
+    lang: str | None = None,
+    threads: int = 2,
+    diagnostics: list[str] | None = None,
+) -> list[str]:
+    """Return on-screen text lines from a BGR frame, in reading order
+    (top->bottom, left->right)."""
+    return [
+        d["text"]
+        for d in extract_text_boxes(bgr, lang=lang, threads=threads, diagnostics=diagnostics)
+    ]
 
 
 def normalize_line(line: str) -> str:
