@@ -21,6 +21,17 @@ keyframe) and `frames/NNNNN_thumb.png` (thumbnail).
 - Add `--fast` for motion-only segmentation (no per-frame OCR) on simple clips — faster, but
   it misses subtle local changes.
 
+### Performance — long or fast-moving recordings
+Text mode OCRs every changed frame, so it is **slow on long or busy video** (a 2-minute clip
+can take several minutes). Choose options up front:
+- Recording longer than ~30s, or anything that isn't a calm UI screencast → **start with
+  `--fast`** (motion-only) or cap the work with `--max-frames 60`.
+- Only use full text mode when subtle on-screen text changes actually matter.
+
+Screex prints progress to stderr (`index: state N …`) as it builds. Watch that to see it
+working — do **not** sit in a long `sleep`. If you must run it in the background, poll the
+output file for new `state` lines rather than blind-waiting.
+
 ## Read the index
 `Read` `index.json`. It is an ordered list of UI `states`, each with `t_start`/`t_end`,
 `ocr_text` (the on-screen text), `text_added` / `text_removed` (what text appeared or

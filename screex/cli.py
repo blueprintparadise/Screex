@@ -22,6 +22,20 @@ def _clean_frames_dir(frames_dir: Path) -> None:
     frames_dir.mkdir(parents=True, exist_ok=True)
 
 
+def _slow_warning(duration, fps, fast, max_frames, threshold=150):
+    """Return a heads-up string if a text-mode index will be slow (many OCR'd frames),
+    else None. Text mode OCRs every changed frame, so long/fast-moving video is costly."""
+    if fast:
+        return None
+    est = duration * fps
+    if max_frames:
+        est = min(est, max_frames)
+    if est <= threshold:
+        return None
+    return (f"~{int(est)} frames to scan in text mode (OCR runs on changed frames) — this can "
+            f"take a few minutes. Use --fast (motion-only) or --max-frames to speed it up.")
+
+
 def analyze(video, fps=5.0, cols=120, sensitivity=0.06, edge=False, out=None,
             cut_threshold=0.5, max_frames=None, quiet=False):
     import cv2
@@ -91,6 +105,9 @@ def index(recording, fps=2.0, change_threshold=0.04, thumb_width=320, out=None,
 
     recording = Path(recording)
     info = source.video_info(str(recording))
+    warn = _slow_warning(info["duration"], fps, fast, max_frames)
+    if warn:
+        _log(quiet, f"index: {warn}")
     out_dir = Path(out) if out else recording.parent / f"{recording.stem}.screex"
     frames_dir = out_dir / "frames"
     _clean_frames_dir(frames_dir)

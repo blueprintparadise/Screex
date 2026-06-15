@@ -110,6 +110,15 @@ def test_transcript_cli_writes_markdown(screencast_video, tmp_path):
     assert "State 1" in text
 
 
+def test_slow_warning_logic():
+    from screex.cli import _slow_warning
+
+    assert _slow_warning(10, 2, fast=False, max_frames=None) is None      # ~20 frames: fine
+    assert _slow_warning(200, 2, fast=False, max_frames=None) is not None  # ~400 frames: warn
+    assert _slow_warning(200, 2, fast=True, max_frames=None) is None       # fast mode: never warn
+    assert _slow_warning(200, 2, fast=False, max_frames=60) is None        # capped to 60: fine
+
+
 def test_index_text_mode_catches_subtle_change(subtle_screencast_video, tmp_path):
     from screex.cli import index
     from screex.core.index import ScreenIndex
