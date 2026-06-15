@@ -1,4 +1,4 @@
-from screex.core.index import ScreenState, ScreenIndex
+from screex.core.index import ScreenIndex, ScreenState
 from screex.transcript import format_transcript
 
 
