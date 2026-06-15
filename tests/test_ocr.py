@@ -43,3 +43,48 @@ def test_text_similarity():
     assert ocr.text_similarity(["a"], []) == 0.0
     assert ocr.text_similarity(["Open Settings"], ["open settings"]) == 1.0
     assert 0.0 < ocr.text_similarity(["a", "b"], ["b", "c"]) < 1.0
+
+
+def test_extract_text_accepts_threads_and_reads_text():
+    import cv2
+    import numpy as np
+    img = np.full((140, 640, 3), 255, dtype=np.uint8)
+    cv2.putText(img, "Save", (20, 90), cv2.FONT_HERSHEY_SIMPLEX, 1.6, (0, 0, 0), 3)
+    lines = ocr.extract_text(img, threads=2)
+    assert any("save" in line.lower() for line in lines)
+
+
+def test_extract_text_tolerates_frame_failure(monkeypatch):
+    import numpy as np
+
+    class Boom:
+        def __call__(self, img):
+            raise RuntimeError("bad frame")
+
+    monkeypatch.setattr(ocr, "_get_engine", lambda *a, **k: Boom())
+    assert ocr.extract_text(np.zeros((4, 4, 3), dtype="uint8")) == []
+
+
+def test_get_engine_caches_per_threads(monkeypatch):
+    import sys
+    import types
+    created = []
+
+    class Fake:
+        def __init__(self, **kw):
+            created.append(kw)
+
+        def __call__(self, img):
+            return ([], None)
+
+    monkeypatch.setattr(ocr, "_engines", {})
+    fake_mod = types.ModuleType("rapidocr_onnxruntime")
+    fake_mod.RapidOCR = Fake
+    monkeypatch.setitem(sys.modules, "rapidocr_onnxruntime", fake_mod)
+
+    e1 = ocr._get_engine(None, 2)
+    e2 = ocr._get_engine(None, 2)
+    e3 = ocr._get_engine(None, 1)
+    assert e1 is e2          # same (lang, threads) -> cached
+    assert e1 is not e3      # different threads -> different engine
+    assert {"intra_op_num_threads": 2} in created
