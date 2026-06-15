@@ -131,3 +131,13 @@ def test_index_text_mode_catches_subtle_change(subtle_screencast_video, tmp_path
     p_fast = index(str(subtle_screencast_video), fps=4.0, fast=True,
                    out=str(tmp_path / "f"), quiet=True)
     assert len(ScreenIndex.load(p_fast).states) == 1
+
+
+def test_index_has_text_helper():
+    from screex.cli import _index_has_text
+    from screex.core.index import ScreenState
+    empty = ScreenState(0, 0.0, 1.0, "t.png", "k.png", ocr_text=[], text_added=[], text_removed=[])
+    has = ScreenState(1, 1.0, 2.0, "t.png", "k.png", ocr_text=["Hi"], text_added=["Hi"], text_removed=[])
+    assert _index_has_text([has]) is True
+    assert _index_has_text([empty]) is False
+    assert _index_has_text([]) is False

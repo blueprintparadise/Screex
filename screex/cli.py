@@ -36,6 +36,11 @@ def _slow_warning(duration, fps, fast, max_frames, threshold=150):
             f"take a few minutes. Use --fast (motion-only) or --max-frames to speed it up.")
 
 
+def _index_has_text(states) -> bool:
+    """True if any state captured on-screen text (text mode is meaningful)."""
+    return any(getattr(s, "ocr_text", None) for s in states)
+
+
 def analyze(video, fps=5.0, cols=120, sensitivity=0.06, edge=False, out=None,
             cut_threshold=0.5, max_frames=None, quiet=False):
     import cv2
@@ -97,7 +102,7 @@ def analyze(video, fps=5.0, cols=120, sensitivity=0.06, edge=False, out=None,
 def index(recording, fps=2.0, change_threshold=0.04, thumb_width=320, out=None,
           max_frames=None, keyframe_format="png", keyframe_quality=90,
           dedupe_threshold=0.95, lang=None, quiet=False,
-          text_threshold=0.80, fast=False, motion_epsilon=0.003):
+          text_threshold=0.80, fast=False, motion_epsilon=0.003, ocr_threads=2):
     import cv2
 
     from screex.core import ocr, segment
@@ -125,12 +130,13 @@ def index(recording, fps=2.0, change_threshold=0.04, thumb_width=320, out=None,
         segs = segment.segment_stream(frames, change_threshold)
     else:
         segs = segment.segment_by_text(
-            frames, lambda b: ocr.extract_text(b, lang=lang),
+            frames, lambda b: ocr.extract_text(b, lang=lang, threads=ocr_threads),
             text_threshold=text_threshold, motion_epsilon=motion_epsilon)
     for seg in segs:
         bgr = seg.frame_bgr
         last_t = seg.t_end
-        text = seg.ocr_text if seg.ocr_text is not None else ocr.extract_text(bgr, lang=lang)
+        text = (seg.ocr_text if seg.ocr_text is not None
+                else ocr.extract_text(bgr, lang=lang, threads=ocr_threads))
 
         # Merge near-identical consecutive UI states (cheap dedup) instead of emitting
         # a new state + extra image files for what is effectively the same screen.
@@ -168,7 +174,10 @@ def index(recording, fps=2.0, change_threshold=0.04, thumb_width=320, out=None,
     index_path = out_dir / "index.json"
     screen_index.save(index_path)
     _log(quiet, f"index: {len(states)} states -> {index_path}")
-    if len(states) == 1 and duration > 3:
+    if not _index_has_text(states):
+        _log(quiet, "index: no on-screen text detected — text mode can't split this; "
+                    "re-run with --fast for visual (motion) states")
+    elif len(states) == 1 and duration > 3:
         _log(quiet, "index: only 1 state for a >3s recording — try a lower "
                     "--text-threshold or a higher --fps (or drop --fast)")
     return index_path
@@ -217,6 +226,9 @@ def main(argv=None):
                     help="skip OCR on frames whose motion vs the previous frame is below this")
     ix.add_argument("--fast", action="store_true",
                     help="motion-only segmentation (no per-frame OCR); faster but misses subtle changes")
+    ix.add_argument("--ocr-threads", type=int, default=2,
+                    help="onnxruntime intra-op threads for OCR (2 is fastest on most CPUs; "
+                         "0 = library default)")
 
     c = sub.add_parser("capture", help="record a short clip from the screen or webcam")
     c.add_argument("--screen", action="store_true", help="capture the screen (needs 'mss')")
@@ -258,7 +270,7 @@ def main(argv=None):
                      keyframe_format=args.keyframe_format, keyframe_quality=args.keyframe_quality,
                      dedupe_threshold=args.dedupe_threshold, lang=args.lang, quiet=quiet,
                      text_threshold=args.text_threshold, motion_epsilon=args.motion_epsilon,
-                     fast=args.fast)
+                     fast=args.fast, ocr_threads=args.ocr_threads)
         print(f"index: {path}")
     elif args.cmd == "capture":
         if args.screen:
