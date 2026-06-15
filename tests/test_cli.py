@@ -98,3 +98,27 @@ def test_index_empty_video_raises(tmp_path):
     bogus.write_bytes(b"not a video")
     with pytest.raises((ValueError, FileNotFoundError)):
         index(str(bogus), out=str(tmp_path / "o"))
+
+
+def test_transcript_cli_writes_markdown(screencast_video, tmp_path):
+    from screex.cli import main
+
+    out_md = tmp_path / "steps.md"
+    main(["transcript", str(screencast_video), "--fps", "4", "-o", str(out_md)])
+    text = out_md.read_text(encoding="utf-8")
+    assert text.startswith("# Transcript")
+    assert "State 1" in text
+
+
+def test_index_text_mode_catches_subtle_change(subtle_screencast_video, tmp_path):
+    from screex.cli import index
+    from screex.core.index import ScreenIndex
+
+    # default = text mode -> the "Loading" -> "Ready" change becomes a 2nd state
+    p_text = index(str(subtle_screencast_video), fps=4.0, out=str(tmp_path / "t"), quiet=True)
+    assert len(ScreenIndex.load(p_text).states) >= 2
+
+    # --fast = motion-only -> the subtle change is below --change-threshold -> 1 state
+    p_fast = index(str(subtle_screencast_video), fps=4.0, fast=True,
+                   out=str(tmp_path / "f"), quiet=True)
+    assert len(ScreenIndex.load(p_fast).states) == 1

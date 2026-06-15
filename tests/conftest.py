@@ -61,3 +61,26 @@ def dup_text_video(tmp_path):
             vw.write(frame)
     vw.release()
     return path
+
+
+@pytest.fixture
+def subtle_screencast_video(tmp_path):
+    """Mostly-static screen with only a small status line changing between two screens.
+    The inter-state whole-frame motion is small (below the motion --change-threshold of
+    0.04 but above motion_epsilon 0.003), so motion-only mode sees one state while text
+    mode sees two."""
+    import cv2
+    import numpy as np
+
+    path = tmp_path / "subtle.avi"
+    w, h, fps = 480, 360, 4
+    vw = cv2.VideoWriter(str(path), cv2.VideoWriter_fourcc(*"MJPG"), fps, (w, h))
+    assert vw.isOpened(), "MJPG VideoWriter failed to open"
+    for status in ("Status: Loading", "Status: Ready"):
+        for _ in range(6):
+            frame = np.full((h, w, 3), 245, dtype=np.uint8)
+            cv2.putText(frame, "Dashboard", (20, 70), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (30, 30, 30), 2)
+            cv2.putText(frame, status, (20, 210), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (30, 30, 30), 2)
+            vw.write(frame)
+    vw.release()
+    return path

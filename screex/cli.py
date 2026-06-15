@@ -82,7 +82,8 @@ def analyze(video, fps=5.0, cols=120, sensitivity=0.06, edge=False, out=None,
 
 def index(recording, fps=2.0, change_threshold=0.04, thumb_width=320, out=None,
           max_frames=None, keyframe_format="png", keyframe_quality=90,
-          dedupe_threshold=0.95, lang=None, quiet=False):
+          dedupe_threshold=0.95, lang=None, quiet=False,
+          text_threshold=0.80, fast=False, motion_epsilon=0.003):
     import cv2
 
     from screex.core import ocr, segment
@@ -103,10 +104,16 @@ def index(recording, fps=2.0, change_threshold=0.04, thumb_width=320, out=None,
     prev_ocr = []
     last_t = 0.0
     frames = source.iter_frames(str(recording), fps, max_frames=max_frames)
-    for seg in segment.segment_stream(frames, change_threshold):
+    if fast:
+        segs = segment.segment_stream(frames, change_threshold)
+    else:
+        segs = segment.segment_by_text(
+            frames, lambda b: ocr.extract_text(b, lang=lang),
+            text_threshold=text_threshold, motion_epsilon=motion_epsilon)
+    for seg in segs:
         bgr = seg.frame_bgr
         last_t = seg.t_end
-        text = ocr.extract_text(bgr, lang=lang)
+        text = seg.ocr_text if seg.ocr_text is not None else ocr.extract_text(bgr, lang=lang)
 
         # Merge near-identical consecutive UI states (cheap dedup) instead of emitting
         # a new state + extra image files for what is effectively the same screen.
@@ -144,6 +151,9 @@ def index(recording, fps=2.0, change_threshold=0.04, thumb_width=320, out=None,
     index_path = out_dir / "index.json"
     screen_index.save(index_path)
     _log(quiet, f"index: {len(states)} states -> {index_path}")
+    if len(states) == 1 and duration > 3:
+        _log(quiet, "index: only 1 state for a >3s recording — try a lower "
+                    "--text-threshold or a higher --fps (or drop --fast)")
     return index_path
 
 
@@ -184,6 +194,12 @@ def main(argv=None):
                     help="merge consecutive states whose on-screen text is at least this "
                          "similar (0..1); set to >1 to disable merging")
     ix.add_argument("--lang", default=None, help="OCR language hint (default: auto)")
+    ix.add_argument("--text-threshold", type=float, default=0.80,
+                    help="start a new state when on-screen text similarity drops below this (0..1)")
+    ix.add_argument("--motion-epsilon", type=float, default=0.003,
+                    help="skip OCR on frames whose motion vs the previous frame is below this")
+    ix.add_argument("--fast", action="store_true",
+                    help="motion-only segmentation (no per-frame OCR); faster but misses subtle changes")
 
     c = sub.add_parser("capture", help="record a short clip from the screen or webcam")
     c.add_argument("--screen", action="store_true", help="capture the screen (needs 'mss')")
@@ -199,6 +215,16 @@ def main(argv=None):
     sk.add_argument("--path", action="store_true",
                     help="print the install target path without writing")
 
+    tr = sub.add_parser("transcript", help="build a markdown step transcript from a recording")
+    tr.add_argument("recording")
+    tr.add_argument("-o", "--out", default=None, help="markdown output file (default: stdout)")
+    tr.add_argument("--from-index", default=None,
+                    help="use an existing index.json instead of building one")
+    tr.add_argument("--fps", type=float, default=2.0, help="frames sampled per second")
+    tr.add_argument("--text-threshold", type=float, default=0.80,
+                    help="text-similarity threshold for a new state (0..1)")
+    tr.add_argument("--fast", action="store_true", help="motion-only segmentation when building")
+
     args = p.parse_args(argv)
     quiet = getattr(args, "quiet", False)
     if args.cmd == "analyze":
@@ -211,7 +237,9 @@ def main(argv=None):
         path = index(args.recording, fps=args.fps, change_threshold=args.change_threshold,
                      thumb_width=args.thumb_width, out=args.out, max_frames=args.max_frames,
                      keyframe_format=args.keyframe_format, keyframe_quality=args.keyframe_quality,
-                     dedupe_threshold=args.dedupe_threshold, lang=args.lang, quiet=quiet)
+                     dedupe_threshold=args.dedupe_threshold, lang=args.lang, quiet=quiet,
+                     text_threshold=args.text_threshold, motion_epsilon=args.motion_epsilon,
+                     fast=args.fast)
         print(f"index: {path}")
     elif args.cmd == "capture":
         if args.screen:
@@ -227,6 +255,21 @@ def main(argv=None):
         else:
             target = skill_mod.install_skill(args.dir)
             print(f"installed skill: {target}")
+    elif args.cmd == "transcript":
+        from screex.core.index import ScreenIndex
+        from screex.transcript import format_transcript
+        if args.from_index:
+            si = ScreenIndex.load(args.from_index)
+        else:
+            idx_path = index(args.recording, fps=args.fps, text_threshold=args.text_threshold,
+                             fast=args.fast, quiet=quiet)
+            si = ScreenIndex.load(idx_path)
+        md = format_transcript(si)
+        if args.out:
+            Path(args.out).write_text(md, encoding="utf-8")
+            print(f"transcript: {args.out}")
+        else:
+            print(md)
 
 
 if __name__ == "__main__":

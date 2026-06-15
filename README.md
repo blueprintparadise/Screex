@@ -58,6 +58,9 @@ path/to/recording.screex/
 |------|---------|---------|
 | `--fps` | `2` | frames sampled per second (raise for fast-moving recordings) |
 | `--change-threshold` | `0.04` | mean frame-to-frame intensity change (0–1) that starts a new UI state; also fires on cumulative drift from the state's anchor frame (catches slow scrolls/fades). Lower = more states, higher = fewer |
+| `--text-threshold` | `0.80` | **(default text mode)** start a new state when on-screen text similarity vs the current state drops below this (0–1) |
+| `--motion-epsilon` | `0.003` | skip OCR on frames essentially identical to the previous one (performance only) |
+| `--fast` | off | motion-only segmentation (no per-frame OCR) — faster, but misses subtle local changes |
 | `--dedupe-threshold` | `0.95` | merge consecutive states whose on-screen text is at least this similar (0–1); set `>1` to disable |
 | `--thumb-width` | `320` | thumbnail width in px |
 | `--keyframe-format` | `png` | `png` (lossless) or `jpg` (much smaller) for keyframes/thumbnails |
@@ -66,6 +69,18 @@ path/to/recording.screex/
 | `--lang` | _auto_ | OCR language hint |
 | `--out` | `<recording>.screex` | output directory |
 | `-q, --quiet` | off | suppress progress output (place before the subcommand) |
+
+### Transcript (no LLM needed)
+
+Turn a recording straight into a timestamped markdown step list:
+
+```bash
+screex transcript path/to/recording.mp4 -o steps.md    # omit -o to print to stdout
+screex transcript path/to/recording.mp4 --from-index path/to/recording.screex/index.json
+```
+
+By default `index`/`transcript` segment by **on-screen text change**, so a dialog or a status
+line appearing becomes its own step. Use `--fast` for motion-only segmentation on simple clips.
 
 ### What `index.json` contains
 A `schema_version`, the source `video`/`duration`/`sampled_fps`, and an ordered list of
