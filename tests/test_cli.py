@@ -108,3 +108,17 @@ def test_transcript_cli_writes_markdown(screencast_video, tmp_path):
     text = out_md.read_text(encoding="utf-8")
     assert text.startswith("# Transcript")
     assert "State 1" in text
+
+
+def test_index_text_mode_catches_subtle_change(subtle_screencast_video, tmp_path):
+    from screex.cli import index
+    from screex.core.index import ScreenIndex
+
+    # default = text mode -> the "Loading" -> "Ready" change becomes a 2nd state
+    p_text = index(str(subtle_screencast_video), fps=4.0, out=str(tmp_path / "t"), quiet=True)
+    assert len(ScreenIndex.load(p_text).states) >= 2
+
+    # --fast = motion-only -> the subtle change is below --change-threshold -> 1 state
+    p_fast = index(str(subtle_screencast_video), fps=4.0, fast=True,
+                   out=str(tmp_path / "f"), quiet=True)
+    assert len(ScreenIndex.load(p_fast).states) == 1
