@@ -214,6 +214,8 @@ def main(argv=None):
                     help="target skills dir (default ~/.claude/skills/screex)")
     sk.add_argument("--path", action="store_true",
                     help="print the install target path without writing")
+    sk.add_argument("--check", action="store_true",
+                    help="report whether the installed skill matches this package version")
 
     tr = sub.add_parser("transcript", help="build a markdown step transcript from a recording")
     tr.add_argument("recording")
@@ -250,8 +252,17 @@ def main(argv=None):
     elif args.cmd == "skill":
         from screex import skill as skill_mod
         target_dir = Path(args.dir) if args.dir else skill_mod.default_skill_dir()
-        if args.path:
-            print(target_dir / "SKILL.md")
+        skill_path = target_dir / "SKILL.md"
+        if args.check:
+            status = skill_mod.skill_status(args.dir)
+            if status == "current":
+                print(f"skill up to date ({__version__}): {skill_path}")
+            elif status == "missing":
+                print("skill not installed — run: screex skill --install")
+            else:
+                print(f"skill out of date — run: screex skill --install  ({skill_path})")
+        elif args.path:
+            print(skill_path)
         else:
             target = skill_mod.install_skill(args.dir)
             print(f"installed skill: {target}")

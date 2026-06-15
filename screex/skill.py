@@ -22,3 +22,15 @@ def install_skill(dest_dir=None) -> Path:
     target = target_dir / "SKILL.md"
     target.write_text(skill_text(), encoding="utf-8")
     return target
+
+
+def skill_status(dest_dir=None) -> str:
+    """Compare the installed SKILL.md to the bundled one (by content).
+
+    Returns "missing" (not installed), "current" (matches the package's bundled skill),
+    or "stale" (installed but differs — re-run ``screex skill --install``)."""
+    target_dir = Path(dest_dir) if dest_dir else default_skill_dir()
+    target = target_dir / "SKILL.md"
+    if not target.exists():
+        return "missing"
+    return "current" if target.read_text(encoding="utf-8") == skill_text() else "stale"

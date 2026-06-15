@@ -104,6 +104,7 @@ views: an **action transcript**, **Q&A** over the recording, or a **how-to / bug
    screex skill --install                                          # ~/.claude/skills/screex/
    screex skill --install --dir <project>/.claude/skills/screex    # per-project
    screex skill --path                                             # just print the target path
+   screex skill --check                                            # is the installed skill current?
    ```
 3. **Use it** — in Claude Code, just ask in natural language, e.g.:
    - *"Use screex to turn `~/Downloads/bug-repro.mp4` into a bug report."*
@@ -116,6 +117,10 @@ views: an **action transcript**, **Q&A** over the recording, or a **how-to / bug
 
 > The skill is model-agnostic: the same `index.json` can be read by any LLM/agent, not only
 > Claude.
+
+**Staying current:** upgrading the package does not re-copy `SKILL.md`. After an upgrade run
+`pip install -U screex && screex skill --install`; `screex skill --check` tells you if your
+installed skill is behind the package.
 
 ---
 
