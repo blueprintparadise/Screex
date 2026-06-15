@@ -98,3 +98,13 @@ def test_index_empty_video_raises(tmp_path):
     bogus.write_bytes(b"not a video")
     with pytest.raises((ValueError, FileNotFoundError)):
         index(str(bogus), out=str(tmp_path / "o"))
+
+
+def test_transcript_cli_writes_markdown(screencast_video, tmp_path):
+    from screex.cli import main
+
+    out_md = tmp_path / "steps.md"
+    main(["transcript", str(screencast_video), "--fps", "4", "-o", str(out_md)])
+    text = out_md.read_text(encoding="utf-8")
+    assert text.startswith("# Transcript")
+    assert "State 1" in text

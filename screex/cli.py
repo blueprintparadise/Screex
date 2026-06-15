@@ -215,6 +215,16 @@ def main(argv=None):
     sk.add_argument("--path", action="store_true",
                     help="print the install target path without writing")
 
+    tr = sub.add_parser("transcript", help="build a markdown step transcript from a recording")
+    tr.add_argument("recording")
+    tr.add_argument("-o", "--out", default=None, help="markdown output file (default: stdout)")
+    tr.add_argument("--from-index", default=None,
+                    help="use an existing index.json instead of building one")
+    tr.add_argument("--fps", type=float, default=2.0, help="frames sampled per second")
+    tr.add_argument("--text-threshold", type=float, default=0.80,
+                    help="text-similarity threshold for a new state (0..1)")
+    tr.add_argument("--fast", action="store_true", help="motion-only segmentation when building")
+
     args = p.parse_args(argv)
     quiet = getattr(args, "quiet", False)
     if args.cmd == "analyze":
@@ -245,6 +255,21 @@ def main(argv=None):
         else:
             target = skill_mod.install_skill(args.dir)
             print(f"installed skill: {target}")
+    elif args.cmd == "transcript":
+        from screex.core.index import ScreenIndex
+        from screex.transcript import format_transcript
+        if args.from_index:
+            si = ScreenIndex.load(args.from_index)
+        else:
+            idx_path = index(args.recording, fps=args.fps, text_threshold=args.text_threshold,
+                             fast=args.fast, quiet=quiet)
+            si = ScreenIndex.load(idx_path)
+        md = format_transcript(si)
+        if args.out:
+            Path(args.out).write_text(md, encoding="utf-8")
+            print(f"transcript: {args.out}")
+        else:
+            print(md)
 
 
 if __name__ == "__main__":
