@@ -2,6 +2,13 @@
   <img src="docs/assets/logo.jpg" alt="Screex — screen recordings to LLM-ready" width="320">
 </p>
 
+<p align="center">
+  <a href="https://pypi.org/project/screex/"><img src="https://img.shields.io/pypi/v/screex.svg" alt="PyPI version"></a>
+  <img src="https://img.shields.io/pypi/pyversions/screex.svg" alt="Python versions">
+  <a href="https://github.com/blueprintparadise/Screex/actions/workflows/ci.yml"><img src="https://github.com/blueprintparadise/Screex/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <img src="https://img.shields.io/pypi/l/screex.svg" alt="License: MIT">
+</p>
+
 # Screex
 
 **Screen-recording understanding for agents.** Screex turns a screencast into a queryable
@@ -13,6 +20,45 @@ action transcript, answer questions, or generate a how-to guide / bug report fro
 - **`pip install`-only** — OCR via [`rapidocr-onnxruntime`](https://pypi.org/project/rapidocr-onnxruntime/), no system binaries.
 - **Cheap by design** — the on-screen text is plain text (nearly free to read); full-res
   keyframes are escalated to only when the text is insufficient.
+
+**Good for:** bug repros → reproduction reports · demos & Loom videos → how-to docs ·
+tutorials → step lists · *"what did the user do / what URL did they open?"* Q&A over a recording.
+
+---
+
+## Example
+
+A short screen recording of a login → settings → error flow becomes a timestamped step list:
+
+```bash
+screex transcript bug-repro.mp4 -o steps.md
+```
+
+`steps.md`:
+
+```
+# Transcript — bug-repro.mp4  (0:06)
+
+## 0:00–0:01  ·  State 1
+Acme Console · Sign in · Email: rushi@acme.io
+**Appeared:** Acme Console, Sign in
+
+## 0:01–0:02  ·  State 2
+Dashboard · Welcome back, Rushi · Projects: 3
+**Appeared:** Dashboard, Welcome back, Rushi
+**Gone:** Acme Console, Sign in
+
+## 0:03–0:04  ·  State 3
+Settings > API Keys · New key: sk-live-9f2a · [ Save ]
+**Appeared:** Settings > API Keys, New key: sk-live-9f2a
+
+## 0:04–0:06  ·  State 4
+Error: invalid API key format · Expected prefix 'sk_' not 'sk-'
+**Appeared:** Error: invalid API key format
+```
+
+Prefer richer output? Hand the `index.json` to Claude via the bundled skill and ask for a
+**bug report**, a **how-to guide**, or **answers to questions** about the recording.
 
 ---
 
