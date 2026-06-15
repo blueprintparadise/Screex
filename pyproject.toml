@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "screex"
-version = "0.4.0"
+version = "0.5.0"
 description = "Screen-recording understanding: turn a screencast into a queryable index of UI states for transcripts, Q&A, and how-to / bug-report generation."
 readme = "README.md"
 requires-python = ">=3.9"
