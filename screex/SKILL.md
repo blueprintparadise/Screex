@@ -60,3 +60,5 @@ The `ocr_text` and `text_*` fields are text and nearly free to read. Escalate to
 `ocr_text` can contain minor OCR noise (stray glyphs); collapse states whose `ocr_text` is
 essentially identical when you narrate. If a long recording produced only one state, re-run
 with a lower `--text-threshold` or a higher `--fps` (or drop `--fast`).
+If the index has no on-screen text at all, the recording isn't a text UI — re-run with `--fast`
+to get visual (motion) states instead.

@@ -29,3 +29,14 @@ It prints states, on-screen-text tokens, escalated-image tokens, the baseline
 (every-frame-as-image) token cost, and the **cost ratio** (Screex / baseline). The token
 numbers are coarse estimates for *relative* comparison, not billing accuracy. The win is a
 low ratio at equal or better accuracy. Log results in a table here as you run them.
+
+## OCR speed (v0.3)
+OCR dominates indexing (~93% of runtime). onnxruntime's default threading is slow for the
+detection+recognition models; `--ocr-threads 2` is the sweet spot. Measured on a 640×360 clip:
+
+| intra-op threads | ms/frame | speedup |
+|------------------|----------|---------|
+| default          | ~1996    | 1×      |
+| 1                | ~796     | 2.5×    |
+| **2** (default)  | **~519** | **3.85×** |
+| 4                | ~529     | 3.8×    |

@@ -22,6 +22,7 @@ action transcript, answer questions, or generate a how-to guide / bug report fro
 - **`pip install`-only** — OCR via [`rapidocr-onnxruntime`](https://pypi.org/project/rapidocr-onnxruntime/), no system binaries.
 - **Cheap by design** — the on-screen text is plain text (nearly free to read); full-res
   keyframes are escalated to only when the text is insufficient.
+- **Fast OCR** — tuned onnxruntime threading makes text extraction ~3.85× faster than the default.
 
 **Good for:** bug repros → reproduction reports · demos & Loom videos → how-to docs ·
 tutorials → step lists · *"what did the user do / what URL did they open?"* Q&A over a recording.
@@ -113,6 +114,7 @@ path/to/recording.screex/
 | `--text-threshold` | `0.80` | **(default text mode)** start a new state when on-screen text similarity vs the current state drops below this (0–1) |
 | `--motion-epsilon` | `0.003` | skip OCR on frames essentially identical to the previous one (performance only) |
 | `--fast` | off | motion-only segmentation (no per-frame OCR) — faster, but misses subtle local changes |
+| `--ocr-threads` | `2` | onnxruntime intra-op threads for OCR — 2 is ~3.85× faster than the library default on typical CPUs; `0` = library default |
 | `--dedupe-threshold` | `0.95` | merge consecutive states whose on-screen text is at least this similar (0–1); set `>1` to disable |
 | `--thumb-width` | `320` | thumbnail width in px |
 | `--keyframe-format` | `png` | `png` (lossless) or `jpg` (much smaller) for keyframes/thumbnails |
