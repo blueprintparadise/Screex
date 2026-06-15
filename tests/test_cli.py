@@ -100,6 +100,46 @@ def test_index_empty_video_raises(tmp_path):
         index(str(bogus), out=str(tmp_path / "o"))
 
 
+def test_index_with_boxes(screencast_video, tmp_path):
+    from screex.cli import index
+    from screex.core.index import ScreenIndex
+
+    out = tmp_path / "work_boxes"
+    index_path = index(str(screencast_video), fps=4.0, out=str(out), boxes=True, audio=False)
+    si = ScreenIndex.load(index_path)
+    assert any(s.boxes for s in si.states), "expected at least one state with boxes"
+    for s in si.states:
+        for b in s.boxes:
+            assert "text" in b and "box" in b
+            assert len(b["box"]) == 4
+
+
+def test_index_redacts_secret(secret_video, tmp_path):
+    from screex.cli import index
+    from screex.core.index import ScreenIndex
+
+    out = tmp_path / "work_redact"
+    index_path = index(str(secret_video), fps=4.0, out=str(out), redact=True, audio=False)
+    si = ScreenIndex.load(index_path)
+    all_text = " ".join(" ".join(s.ocr_text) for s in si.states)
+    assert "rushi@acme.io" not in all_text
+    assert "REDACTED" in all_text
+
+
+def test_index_interactions_label(screencast_video, tmp_path):
+    from screex.cli import index
+    from screex.core.index import ScreenIndex
+
+    out = tmp_path / "work_interactions"
+    index_path = index(str(screencast_video), fps=4.0, out=str(out),
+                       interactions=True, audio=False)
+    si = ScreenIndex.load(index_path)
+    # interactions are heuristic; assert the field is well-formed when present
+    for s in si.states:
+        for it in s.interactions:
+            assert {"t", "x", "y", "label"} <= set(it.keys())
+
+
 def test_transcript_cli_writes_markdown(screencast_video, tmp_path):
     from screex.cli import main
 

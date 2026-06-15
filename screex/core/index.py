@@ -15,6 +15,8 @@ class ScreenState:
     ocr_text: list = field(default_factory=list)
     text_added: list = field(default_factory=list)
     text_removed: list = field(default_factory=list)
+    boxes: list = field(default_factory=list)  # [{"text": str, "box": [x, y, w, h]}]
+    interactions: list = field(default_factory=list)  # [{"t", "x", "y", "label"}]
 
 
 @dataclass

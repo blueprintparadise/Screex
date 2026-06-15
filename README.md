@@ -120,6 +120,9 @@ path/to/recording.screex/
 | `--ocr-threads` | `2` | onnxruntime intra-op threads for OCR — 2 is ~3.85× faster than the library default on typical CPUs; `0` = library default |
 | `--no-audio` | off | skip speech-to-text narration (on by default when `screex[audio]` is installed) |
 | `--whisper-model` | `base` | faster-whisper model for narration (`tiny`/`base`/`small`/`medium`) |
+| `--boxes` | off | include per-line OCR bounding boxes `[x,y,w,h]` in each state (for spatial Q&A / tooling) |
+| `--redact` | off | mask secrets/PII (API keys, emails, tokens, cards, SSNs) in `ocr_text`/`text_*`/`narration` **and blur those regions in keyframes** |
+| `--interactions` | off | estimate per-state cursor/interaction hotspots (heuristic) and label them with the nearest on-screen text |
 | `--dedupe-threshold` | `0.95` | merge consecutive states whose on-screen text is at least this similar (0–1); set `>1` to disable |
 | `--thumb-width` | `320` | thumbnail width in px |
 | `--keyframe-format` | `png` | `png` (lossless) or `jpg` (much smaller) for keyframes/thumbnails |
@@ -146,7 +149,16 @@ A `schema_version`, the source `video`/`duration`/`sampled_fps`, and an ordered 
 `states`, each with:
 `t_start` / `t_end`, `ocr_text` (on-screen text lines), `text_added` / `text_removed`
 (text that appeared/disappeared vs the previous state — the strongest signal of what the user
-did), and `thumbnail` / `keyframe` paths.
+did), and `thumbnail` / `keyframe` paths. With `--boxes`, each state also carries `boxes`
+(per-line `{text, box:[x,y,w,h]}`); with `--interactions`, each state may carry
+`interactions` (`{t, x, y, label}` estimated cursor hotspots).
+
+### Privacy / redaction
+Screex indexes whatever is on screen — for bug repros that often includes **passwords, API
+keys, tokens, and PII**. Pass `--redact` to mask those in the text/narration and **blur the
+matching regions in the keyframe images** before anything is written, so the `.screex`
+directory is safe to share. Detection is best-effort (regex + high-entropy tokens), not a
+compliance guarantee — review sensitive recordings before sharing.
 
 ---
 

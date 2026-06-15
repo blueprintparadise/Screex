@@ -13,6 +13,20 @@ def test_extract_text_reads_rendered_text():
     assert "settings" in joined
 
 
+def test_extract_text_boxes_returns_boxes():
+    img = np.full((140, 640, 3), 255, dtype=np.uint8)
+    cv2.putText(img, "Open Settings", (20, 90), cv2.FONT_HERSHEY_SIMPLEX, 1.6, (0, 0, 0), 3)
+    items = ocr.extract_text_boxes(img)
+    assert items, "expected at least one detected text box"
+    for it in items:
+        assert "text" in it and "box" in it
+        x, y, w, h = it["box"]
+        assert w > 0 and h > 0
+        assert all(isinstance(v, int) for v in it["box"])
+    # text from boxes matches the flat extractor
+    assert [it["text"] for it in items] == ocr.extract_text(img)
+
+
 def test_text_diff_added_and_removed():
     added, removed = ocr.text_diff(["a", "b"], ["b", "c"])
     assert added == ["c"]

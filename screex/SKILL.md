@@ -39,6 +39,17 @@ disappeared vs the previous state — the strongest signal of what the user did)
 a `thumbnail` and full-res `keyframe`. The on-screen text is plain text — reading it across
 states is cheap. If the recording was narrated and `screex[audio]` is installed, the index also has a `narration` field (timestamped spoken text) — use it to explain *why* each step happened and to answer questions about what the narrator said (`--no-audio` skips it).
 
+## Optional fields (enable when useful)
+- `--interactions`: adds an `interactions` array per state (`{t, x, y, label}`) — a *heuristic*
+  estimate of where the user was acting and the nearest on-screen text. Great for "what did
+  they click?" questions, but it's approximate (no real click events) — trust `text_added`
+  over it when they disagree.
+- `--boxes`: adds `boxes` per state (`{text, box:[x,y,w,h]}`) so you can reason about *where*
+  text is (e.g. "the button in the top-right").
+- `--redact`: masks secrets/PII (keys, emails, tokens, cards) in the text and **blurs those
+  regions in the keyframes**. Use it whenever the recording may contain credentials before
+  you read or share keyframes.
+
 ## Produce one of three views
 
 - **Action transcript:** walk the states in order; use `text_added`/`text_removed` plus the
