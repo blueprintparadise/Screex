@@ -2,6 +2,53 @@ from screex.cli import analyze
 from screex.core.manifest import Manifest
 
 
+def test_capture_rejects_multiple_sources():
+    import pytest
+
+    from screex.cli import main
+
+    with pytest.raises(SystemExit):
+        main(["capture", "--screen", "--webcam"])
+
+
+def test_capture_screen_passes_controls(monkeypatch, capsys):
+    from screex.cli import main
+    from screex.core import source
+
+    calls = []
+    monkeypatch.setattr(
+        source,
+        "capture_screen",
+        lambda out, seconds, fps=10.0, monitor=1: calls.append(
+            (out, seconds, fps, monitor)
+        ) or out,
+    )
+
+    main(["capture", "--screen", "--seconds", "2.5", "--fps", "12", "--monitor", "2",
+          "--out", "screen.mp4"])
+
+    assert calls == [("screen.mp4", 2.5, 12.0, 2)]
+    assert "captured: screen.mp4" in capsys.readouterr().out
+
+
+def test_capture_webcam_passes_controls_by_default(monkeypatch):
+    from screex.cli import main
+    from screex.core import source
+
+    calls = []
+    monkeypatch.setattr(
+        source,
+        "capture_webcam",
+        lambda out, seconds, fps=15.0, device=0: calls.append(
+            (out, seconds, fps, device)
+        ) or out,
+    )
+
+    main(["capture", "--seconds", "1", "--device", "3", "--out", "cam.mp4"])
+
+    assert calls == [("cam.mp4", 1.0, 15.0, 3)]
+
+
 def test_analyze_produces_manifest_and_files(moving_square_video, tmp_path):
     out = tmp_path / "work"
     manifest_path = analyze(
