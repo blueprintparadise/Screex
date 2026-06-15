@@ -65,6 +65,19 @@ def test_extract_text_tolerates_frame_failure(monkeypatch):
     assert ocr.extract_text(np.zeros((4, 4, 3), dtype="uint8")) == []
 
 
+def test_extract_text_records_diagnostics_on_failure(monkeypatch):
+    import numpy as np
+
+    class Boom:
+        def __call__(self, img):
+            raise RuntimeError("bad frame")
+
+    diagnostics = []
+    monkeypatch.setattr(ocr, "_get_engine", lambda *a, **k: Boom())
+    assert ocr.extract_text(np.zeros((4, 4, 3), dtype="uint8"), diagnostics=diagnostics) == []
+    assert diagnostics == ["OCR failed: RuntimeError: bad frame"]
+
+
 def test_get_engine_caches_per_threads(monkeypatch):
     import sys
     import types

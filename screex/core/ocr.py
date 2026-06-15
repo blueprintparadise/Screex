@@ -25,14 +25,21 @@ def _get_engine(lang=None, threads=2):
     return engine
 
 
-def extract_text(bgr, lang: str | None = None, threads: int = 2) -> list:
+def extract_text(
+    bgr,
+    lang: str | None = None,
+    threads: int = 2,
+    diagnostics: list[str] | None = None,
+) -> list[str]:
     """Return on-screen text lines from a BGR frame, in reading order
     (top->bottom, left->right). The vertical bucket is scaled to the frame height so
     reading order is stable across resolutions."""
     engine = _get_engine(lang, threads)
     try:
         result, _ = engine(bgr)
-    except Exception:
+    except Exception as exc:
+        if diagnostics is not None:
+            diagnostics.append(f"OCR failed: {type(exc).__name__}: {exc}")
         return []
     if not result:
         return []
@@ -58,7 +65,7 @@ def normalize_line(line: str) -> str:
     return " ".join(cleaned.split())
 
 
-def text_diff(prev_lines, cur_lines):
+def text_diff(prev_lines: list[str], cur_lines: list[str]) -> tuple[list[str], list[str]]:
     """Return (added, removed): lines present in cur but not prev, and vice versa.
 
     Comparison is on a normalized form so minor OCR noise (stray glyphs, casing,
@@ -70,8 +77,8 @@ def text_diff(prev_lines, cur_lines):
     prev_norm = Counter(normalize_line(line) for line in prev_lines if normalize_line(line))
     cur_norm = Counter(normalize_line(line) for line in cur_lines if normalize_line(line))
 
-    added = []
-    seen = Counter()
+    added: list[str] = []
+    seen: Counter[str] = Counter()
     for line in cur_lines:
         n = normalize_line(line)
         if not n:
@@ -80,7 +87,7 @@ def text_diff(prev_lines, cur_lines):
         if seen[n] > prev_norm.get(n, 0):
             added.append(line)
 
-    removed = []
+    removed: list[str] = []
     seen = Counter()
     for line in prev_lines:
         n = normalize_line(line)
