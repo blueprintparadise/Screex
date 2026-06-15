@@ -2,6 +2,8 @@
   <img src="docs/assets/logo.jpg" alt="Screex — screen recordings to LLM-ready" width="320">
 </p>
 
+<p align="center"><em>Your LLM can't watch a screen recording. Screex turns one into text it can read.</em></p>
+
 <p align="center">
   <a href="https://pypi.org/project/screex/"><img src="https://img.shields.io/pypi/v/screex.svg" alt="PyPI version"></a>
   <img src="https://img.shields.io/pypi/pyversions/screex.svg" alt="Python versions">
@@ -27,6 +29,10 @@ tutorials → step lists · *"what did the user do / what URL did they open?"* Q
 ---
 
 ## Example
+
+<p align="center">
+  <img src="docs/assets/demo.gif" alt="Screex turning a screen recording into a markdown transcript" width="760">
+</p>
 
 A short screen recording of a login → settings → error flow becomes a timestamped step list:
 
