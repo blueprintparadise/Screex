@@ -17,3 +17,20 @@ def test_format_transcript():
     assert "**Gone:** Login" in md
     # the first state has no removed text -> the only "Gone" line belongs to State 2
     assert md.index("**Gone:** Login") > md.index("## 0:03–1:05")
+
+
+def test_format_transcript_interleaves_narration():
+    from screex.core.index import NarrationSegment, ScreenIndex, ScreenState
+    si = ScreenIndex(
+        video="c.mp4", duration=6.0, sampled_fps=2.0,
+        states=[
+            ScreenState(0, 0.0, 3.0, "t.png", "k.png", ocr_text=["Login"], text_added=["Login"], text_removed=[]),
+            ScreenState(1, 3.0, 6.0, "t.png", "k.png", ocr_text=["Home"], text_added=["Home"], text_removed=[]),
+        ],
+        narration=[NarrationSegment(0.5, 2.0, "first click save"),
+                   NarrationSegment(4.0, 5.0, "now we are home")],
+    )
+    md = format_transcript(si)
+    assert "🗣 said: first click save" in md
+    assert "🗣 said: now we are home" in md
+    assert md.index("first click save") < md.index("now we are home")

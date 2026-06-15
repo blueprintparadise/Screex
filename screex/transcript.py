@@ -6,6 +6,12 @@ def _fmt_time(seconds) -> str:
     return f"{s // 60}:{s % 60:02d}"
 
 
+def _narration_for(narration, t_start, t_end) -> str:
+    """Join narration segments overlapping [t_start, t_end] in time order."""
+    spoken = [n.text for n in narration if n.start < t_end and n.end > t_start]
+    return " ".join(spoken)
+
+
 def format_transcript(screen_index) -> str:
     """Render a ScreenIndex to a markdown step transcript."""
     lines = [f"# Transcript — {screen_index.video}  ({_fmt_time(screen_index.duration)})", ""]
@@ -17,5 +23,8 @@ def format_transcript(screen_index) -> str:
             lines.append(f"**Appeared:** {', '.join(st.text_added)}")
         if st.text_removed:
             lines.append(f"**Gone:** {', '.join(st.text_removed)}")
+        spoken = _narration_for(getattr(screen_index, "narration", None) or [], st.t_start, st.t_end)
+        if spoken:
+            lines.append(f"🗣 said: {spoken}")
         lines.append("")
     return "\n".join(lines).rstrip() + "\n"
