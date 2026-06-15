@@ -18,3 +18,24 @@ def test_screen_index_roundtrip(tmp_path):
     loaded = ScreenIndex.load(path)
     assert loaded == si
     assert loaded.states[1].text_removed == ["Open Settings"]
+
+
+def test_screen_index_narration_roundtrip(tmp_path):
+    from screex.core.index import NarrationSegment
+    si = ScreenIndex(
+        video="cast.mp4", duration=6.0, sampled_fps=2.0,
+        states=[ScreenState(0, 0.0, 3.0, "frames/0_thumb.png", "frames/0.png",
+                            ocr_text=["Hi"], text_added=["Hi"], text_removed=[])],
+        narration=[NarrationSegment(0.5, 2.0, "click save")],
+    )
+    path = tmp_path / "index.json"
+    si.save(path)
+    loaded = ScreenIndex.load(path)
+    assert loaded == si
+    assert loaded.narration[0].text == "click save"
+
+
+def test_screen_index_loads_without_narration_key():
+    d = {"video": "x.mp4", "duration": 1.0, "sampled_fps": 2.0, "states": []}
+    si = ScreenIndex.from_dict(d)
+    assert si.narration == []

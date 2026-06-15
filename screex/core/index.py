@@ -17,6 +17,13 @@ class ScreenState:
     text_removed: list = field(default_factory=list)
 
 
+@dataclass
+class NarrationSegment:
+    start: float
+    end: float
+    text: str
+
+
 SCHEMA_VERSION = 1
 
 
@@ -26,6 +33,7 @@ class ScreenIndex:
     duration: float
     sampled_fps: float
     states: list = field(default_factory=list)
+    narration: list = field(default_factory=list)
     schema_version: int = SCHEMA_VERSION
 
     def to_dict(self) -> dict:
@@ -35,6 +43,7 @@ class ScreenIndex:
             "duration": self.duration,
             "sampled_fps": self.sampled_fps,
             "states": [asdict(s) for s in self.states],
+            "narration": [asdict(n) for n in self.narration],
         }
 
     @classmethod
@@ -44,6 +53,7 @@ class ScreenIndex:
             duration=d["duration"],
             sampled_fps=d["sampled_fps"],
             states=[ScreenState(**s) for s in d["states"]],
+            narration=[NarrationSegment(**n) for n in d.get("narration", [])],
             schema_version=d.get("schema_version", SCHEMA_VERSION),
         )
 
