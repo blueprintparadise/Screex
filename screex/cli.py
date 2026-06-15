@@ -99,11 +99,27 @@ def analyze(video, fps=5.0, cols=120, sensitivity=0.06, edge=False, out=None,
     return manifest_path
 
 
+def _blur_region(bgr, box):
+    """Blur a [x, y, w, h] region of a BGR image in place (best-effort)."""
+    import cv2
+
+    x, y, w, h = box
+    H, W = bgr.shape[:2]
+    x0, y0 = max(0, x), max(0, y)
+    x1, y1 = min(W, x + w), min(H, y + h)
+    if x1 <= x0 or y1 <= y0:
+        return
+    roi = bgr[y0:y1, x0:x1]
+    k = max(3, (min(roi.shape[0], roi.shape[1]) // 2) * 2 + 1)
+    bgr[y0:y1, x0:x1] = cv2.GaussianBlur(roi, (k, k), 0)
+
+
 def index(recording, fps=2.0, change_threshold=0.04, thumb_width=320, out=None,
           max_frames=None, keyframe_format="png", keyframe_quality=90,
           dedupe_threshold=0.95, lang=None, quiet=False,
           text_threshold=0.80, fast=False, motion_epsilon=0.003, ocr_threads=2,
-          audio=True, whisper_model="base"):
+          audio=True, whisper_model="base",
+          boxes=False, redact=False, interactions=False):
     import cv2
 
     from screex.core import ocr, segment
@@ -123,10 +139,20 @@ def index(recording, fps=2.0, change_threshold=0.04, thumb_width=320, out=None,
         raise ValueError(f"unsupported keyframe format: {keyframe_format} (use png or jpg)")
     write_params = [cv2.IMWRITE_JPEG_QUALITY, int(keyframe_quality)] if ext in ("jpg", "jpeg") else []
 
+    if redact:
+        from screex.core import redact as redact_mod
+    need_boxes = boxes or redact or interactions
+
     states = []
+    state_boxes = []  # kf boxes parallel to `states` (for interaction labeling)
     prev_ocr = []
     last_t = 0.0
     frames = source.iter_frames(str(recording), fps, max_frames=max_frames)
+    tracker = None
+    if interactions:
+        from screex.core import cursor
+        tracker = cursor.CursorTracker(frames)
+        frames = iter(tracker)
     if fast:
         segs = segment.segment_stream(frames, change_threshold)
     else:
@@ -136,8 +162,27 @@ def index(recording, fps=2.0, change_threshold=0.04, thumb_width=320, out=None,
     for seg in segs:
         bgr = seg.frame_bgr
         last_t = seg.t_end
-        text = (seg.ocr_text if seg.ocr_text is not None
-                else ocr.extract_text(bgr, lang=lang, threads=ocr_threads))
+
+        if need_boxes:
+            kf_boxes = ocr.extract_text_boxes(bgr, lang=lang, threads=ocr_threads)
+            text = [b["text"] for b in kf_boxes]
+        else:
+            kf_boxes = None
+            text = (seg.ocr_text if seg.ocr_text is not None
+                    else ocr.extract_text(bgr, lang=lang, threads=ocr_threads))
+
+        if redact:
+            bgr = bgr.copy()
+            red_text = []
+            red_boxes = []
+            for b in (kf_boxes or [{"text": t, "box": [0, 0, 0, 0]} for t in text]):
+                masked, kinds = redact_mod.redact_line(b["text"])
+                if kinds and kf_boxes is not None:
+                    _blur_region(bgr, b["box"])
+                red_text.append(masked)
+                red_boxes.append({"text": masked, "box": b["box"]})
+            text = red_text
+            kf_boxes = red_boxes if kf_boxes is not None else None
 
         # Merge near-identical consecutive UI states (cheap dedup) instead of emitting
         # a new state + extra image files for what is effectively the same screen.
@@ -160,18 +205,37 @@ def index(recording, fps=2.0, change_threshold=0.04, thumb_width=320, out=None,
             idx=seg.idx, t_start=round(seg.t_start, 3), t_end=round(seg.t_end, 3),
             thumbnail=thumb_rel, keyframe=key_rel,
             ocr_text=text, text_added=added, text_removed=removed,
+            boxes=(kf_boxes or []) if boxes else [],
         ))
+        state_boxes.append(kf_boxes or [])
         _log(quiet, f"index: state {len(states)} @ {seg.t_start:.1f}-{seg.t_end:.1f}s "
                     f"({len(text)} text lines)")
 
     if not states:
         raise ValueError(f"no UI states produced from {recording} (empty or unreadable video?)")
 
+    if interactions and tracker is not None:
+        from screex.core import cursor
+        fsize = (info["width"], info["height"]) if info["width"] else None
+        hits = 0
+        for st, bxs in zip(states, state_boxes):
+            pt = cursor.hotspot(tracker.positions, st.t_start, st.t_end)
+            if pt is None:
+                continue
+            label = cursor.nearest_label(pt, bxs, frame_size=fsize)
+            st.interactions = [{"t": st.t_end, "x": pt[0], "y": pt[1], "label": label}]
+            hits += 1
+        _log(quiet, f"index: estimated {hits} interaction hotspot(s)")
+
     narration = []
     if audio:
         import screex.core.audio as audio_mod
         if audio_mod.is_available():
             narration = audio_mod.transcribe(str(recording), model=whisper_model)
+            if redact:
+                from screex.core.index import NarrationSegment
+                narration = [NarrationSegment(n.start, n.end, redact_mod.redact_line(n.text)[0])
+                             for n in narration]
             _log(quiet, f"index: transcribed {len(narration)} narration segments")
         else:
             _log(quiet, "index: narration skipped — install the audio extra "
@@ -195,6 +259,14 @@ def index(recording, fps=2.0, change_threshold=0.04, thumb_width=320, out=None,
 
 
 def main(argv=None):
+    # Transcripts and progress can contain non-ASCII (emoji, OCR'd unicode); avoid
+    # crashing on legacy consoles (e.g. Windows cp1252) when printing to stdout/stderr.
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8")
+        except Exception:
+            pass
+
     p = argparse.ArgumentParser(prog="screex")
     p.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     p.add_argument("-q", "--quiet", action="store_true", help="suppress progress output")
@@ -245,6 +317,14 @@ def main(argv=None):
                          "'screex[audio]' is installed)")
     ix.add_argument("--whisper-model", default="base",
                     help="faster-whisper model for narration (tiny/base/small/medium)")
+    ix.add_argument("--boxes", action="store_true",
+                    help="include per-line OCR bounding boxes [x,y,w,h] in each state")
+    ix.add_argument("--redact", action="store_true",
+                    help="mask secrets/PII (keys, emails, tokens, cards) in text and "
+                         "narration, and blur those regions in keyframes")
+    ix.add_argument("--interactions", action="store_true",
+                    help="estimate per-state cursor/interaction hotspots (heuristic) and "
+                         "label them with the nearest on-screen text")
 
     c = sub.add_parser("capture", help="record a short clip from the screen or webcam")
     c.add_argument("--screen", action="store_true", help="capture the screen (needs 'mss')")
@@ -273,6 +353,9 @@ def main(argv=None):
     tr.add_argument("--fast", action="store_true", help="motion-only segmentation when building")
     tr.add_argument("--no-audio", action="store_true", help="skip speech-to-text narration")
     tr.add_argument("--whisper-model", default="base", help="faster-whisper model for narration")
+    tr.add_argument("--redact", action="store_true", help="mask secrets/PII when building the index")
+    tr.add_argument("--interactions", action="store_true",
+                    help="estimate cursor/interaction hotspots and show them in the transcript")
 
     args = p.parse_args(argv)
     quiet = getattr(args, "quiet", False)
@@ -289,7 +372,8 @@ def main(argv=None):
                      dedupe_threshold=args.dedupe_threshold, lang=args.lang, quiet=quiet,
                      text_threshold=args.text_threshold, motion_epsilon=args.motion_epsilon,
                      fast=args.fast, ocr_threads=args.ocr_threads,
-                     audio=not args.no_audio, whisper_model=args.whisper_model)
+                     audio=not args.no_audio, whisper_model=args.whisper_model,
+                     boxes=args.boxes, redact=args.redact, interactions=args.interactions)
         print(f"index: {path}")
     elif args.cmd == "capture":
         if args.screen:
@@ -322,7 +406,8 @@ def main(argv=None):
         else:
             idx_path = index(args.recording, fps=args.fps, text_threshold=args.text_threshold,
                              fast=args.fast, quiet=quiet,
-                             audio=not args.no_audio, whisper_model=args.whisper_model)
+                             audio=not args.no_audio, whisper_model=args.whisper_model,
+                             redact=args.redact, interactions=args.interactions)
             si = ScreenIndex.load(idx_path)
         md = format_transcript(si)
         if args.out:
