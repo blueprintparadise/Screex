@@ -25,12 +25,12 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 
-def estimate(recording, fps, escalate, tokens_per_image, out=None):
+def estimate(recording, fps, escalate, tokens_per_image, out=None, from_index=None, audio=True):
     from screex.cli import index
     from screex.core import source
     from screex.core.index import ScreenIndex
 
-    index_path = index(recording, fps=fps, out=out, quiet=True)
+    index_path = from_index or index(recording, fps=fps, out=out, quiet=True, audio=audio)
     si = ScreenIndex.load(index_path)
 
     text_chars = sum(len("\n".join(s.ocr_text)) for s in si.states)
@@ -69,10 +69,22 @@ def main(argv=None):
     p.add_argument("--tokens-per-image", type=int, default=1500,
                    help="flat estimated input tokens per image read")
     p.add_argument("--out", default=None)
+    p.add_argument("--from-index", default=None,
+                   help="reuse an existing index.json instead of rebuilding it")
+    p.add_argument("--no-audio", action="store_true",
+                   help="skip speech-to-text narration when building an index")
     p.add_argument("--json", action="store_true", help="print raw JSON")
     args = p.parse_args(argv)
 
-    r = estimate(args.recording, args.fps, args.escalate, args.tokens_per_image, args.out)
+    r = estimate(
+        args.recording,
+        args.fps,
+        args.escalate,
+        args.tokens_per_image,
+        args.out,
+        from_index=args.from_index,
+        audio=not args.no_audio,
+    )
     if args.json:
         print(json.dumps(r, indent=2))
         return
