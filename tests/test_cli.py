@@ -110,6 +110,33 @@ def test_transcript_cli_writes_markdown(screencast_video, tmp_path):
     assert "State 1" in text
 
 
+def test_transcript_cli_from_index_does_not_need_recording(tmp_path):
+    from screex.cli import main
+    from screex.core.index import ScreenIndex, ScreenState
+
+    idx = tmp_path / "index.json"
+    out_md = tmp_path / "steps.md"
+    ScreenIndex(
+        video="cast.mp4",
+        duration=1.0,
+        sampled_fps=2.0,
+        states=[ScreenState(0, 0.0, 1.0, "t.png", "k.png", ocr_text=["Ready"])],
+    ).save(idx)
+
+    main(["transcript", "--from-index", str(idx), "-o", str(out_md)])
+
+    assert "Ready" in out_md.read_text(encoding="utf-8")
+
+
+def test_transcript_cli_requires_recording_without_index():
+    import pytest
+
+    from screex.cli import main
+
+    with pytest.raises(SystemExit):
+        main(["transcript"])
+
+
 def test_slow_warning_logic():
     from screex.cli import _slow_warning
 
