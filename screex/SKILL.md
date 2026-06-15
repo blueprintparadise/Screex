@@ -37,7 +37,7 @@ output file for new `state` lines rather than blind-waiting.
 `ocr_text` (the on-screen text), `text_added` / `text_removed` (what text appeared or
 disappeared vs the previous state — the strongest signal of what the user did), and paths to
 a `thumbnail` and full-res `keyframe`. The on-screen text is plain text — reading it across
-states is cheap.
+states is cheap. If the recording was narrated and `screex[audio]` is installed, the index also has a `narration` field (timestamped spoken text) — use it to explain *why* each step happened and to answer questions about what the narrator said (`--no-audio` skips it).
 
 ## Produce one of three views
 

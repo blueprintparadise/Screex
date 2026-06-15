@@ -27,3 +27,15 @@ def test_transcribe_graceful_on_failure(monkeypatch):
 
     monkeypatch.setattr(audio, "_get_model", lambda *a, **k: Boom())
     assert audio.transcribe("x.mp4") == []
+
+
+def test_transcribe_real_clip():
+    import os
+
+    import pytest
+    pytest.importorskip("faster_whisper")  # skipped unless screex[audio] is installed
+    clip = "C:/Users/RushiHiray/Pictures/whisper_crop.mp4"
+    if not os.path.exists(clip):
+        pytest.skip("sample clip not present")
+    segs = audio.transcribe(clip, model="tiny")
+    assert segs and any(s.text for s in segs)
