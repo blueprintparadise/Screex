@@ -327,9 +327,16 @@ def main(argv=None):
                          "label them with the nearest on-screen text")
 
     c = sub.add_parser("capture", help="record a short clip from the screen or webcam")
-    c.add_argument("--screen", action="store_true", help="capture the screen (needs 'mss')")
-    c.add_argument("--webcam", action="store_true", help="capture the default webcam")
+    capture_source = c.add_mutually_exclusive_group()
+    capture_source.add_argument("--screen", action="store_true", help="capture the screen (needs 'mss')")
+    capture_source.add_argument("--webcam", action="store_true", help="capture the default webcam")
     c.add_argument("--seconds", type=float, default=10.0)
+    c.add_argument("--fps", type=float, default=None,
+                   help="capture frames per second (default: screen 10, webcam 15)")
+    c.add_argument("--monitor", type=int, default=1,
+                   help="screen monitor number for --screen (1 = primary)")
+    c.add_argument("--device", type=int, default=0,
+                   help="webcam device index for --webcam/default capture")
     c.add_argument("--out", default="capture.mp4")
 
     sk = sub.add_parser("skill", help="install or locate the Screex Claude skill (SKILL.md)")
@@ -377,9 +384,11 @@ def main(argv=None):
         print(f"index: {path}")
     elif args.cmd == "capture":
         if args.screen:
-            out = source.capture_screen(args.out, args.seconds)
+            fps = args.fps if args.fps is not None else 10.0
+            out = source.capture_screen(args.out, args.seconds, fps=fps, monitor=args.monitor)
         else:
-            out = source.capture_webcam(args.out, args.seconds)
+            fps = args.fps if args.fps is not None else 15.0
+            out = source.capture_webcam(args.out, args.seconds, fps=fps, device=args.device)
         print(f"captured: {out}")
     elif args.cmd == "skill":
         from screex import skill as skill_mod
