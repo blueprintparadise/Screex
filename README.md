@@ -20,6 +20,8 @@ action transcript, answer questions, or generate a how-to guide / bug report fro
 
 - **Training-free & model-agnostic** — no fine-tuned UI model; any LLM can read the index.
 - **`pip install`-only** — OCR via [`rapidocr-onnxruntime`](https://pypi.org/project/rapidocr-onnxruntime/), no system binaries.
+- **Server-friendly runtime** — uses headless OpenCV, so CI and Linux servers do not need GUI
+  libraries just to build indexes.
 - **Cheap by design** — the on-screen text is plain text (nearly free to read); full-res
   keyframes are escalated to only when the text is insufficient.
 - **Fast OCR** — tuned onnxruntime threading makes text extraction ~3.85× faster than the default.
@@ -146,7 +148,8 @@ A `schema_version`, the source `video`/`duration`/`sampled_fps`, and an ordered 
 `states`, each with:
 `t_start` / `t_end`, `ocr_text` (on-screen text lines), `text_added` / `text_removed`
 (text that appeared/disappeared vs the previous state — the strongest signal of what the user
-did), and `thumbnail` / `keyframe` paths.
+did), `thumbnail` / `keyframe` paths, and optional `warnings` for recoverable diagnostics such
+as OCR failures on individual frames.
 
 ---
 
