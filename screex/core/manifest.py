@@ -31,8 +31,8 @@ class Manifest:
     duration: float
     sampled_fps: float
     cols: int
-    frames: list = field(default_factory=list)
-    events: list = field(default_factory=list)
+    frames: list[FrameRecord] = field(default_factory=list)
+    events: list[EventRecord] = field(default_factory=list)
 
     def to_dict(self) -> dict:
         return {

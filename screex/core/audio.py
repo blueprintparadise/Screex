@@ -21,7 +21,7 @@ def _get_model(model: str = "base"):
     return m
 
 
-def transcribe(path, model: str = "base", language=None) -> list:
+def transcribe(path, model: str = "base", language=None) -> list[NarrationSegment]:
     """Return timestamped NarrationSegments for the audio track of ``path``.
     Returns [] on any decode/transcription failure (e.g. no audio stream) so indexing
     never aborts because of audio."""
