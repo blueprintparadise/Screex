@@ -350,7 +350,8 @@ def main(argv=None):
                     help="report whether the installed skill matches this package version")
 
     tr = sub.add_parser("transcript", help="build a markdown step transcript from a recording")
-    tr.add_argument("recording")
+    tr.add_argument("recording", nargs="?",
+                    help="recording to index; optional when --from-index is provided")
     tr.add_argument("-o", "--out", default=None, help="markdown output file (default: stdout)")
     tr.add_argument("--from-index", default=None,
                     help="use an existing index.json instead of building one")
@@ -413,6 +414,8 @@ def main(argv=None):
         if args.from_index:
             si = ScreenIndex.load(args.from_index)
         else:
+            if not args.recording:
+                p.error("transcript requires a recording unless --from-index is provided")
             idx_path = index(args.recording, fps=args.fps, text_threshold=args.text_threshold,
                              fast=args.fast, quiet=quiet,
                              audio=not args.no_audio, whisper_model=args.whisper_model,
