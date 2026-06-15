@@ -1,7 +1,10 @@
 # Screex on Sharingan (ACTREAL) — Benchmark Study Design
 
 **Date:** 2026-06-15
-**Status:** Approved (design); pending spec review
+**Status:** SUPERSEDED — Sharingan ships no public data or ground truth, forcing ACTREAL
+reconstruction + self-generated GT (the spec's biggest risk). Replaced by the GUI-World
+design (`2026-06-15-screex-guiworld-study-design.md`), which uses a dataset that ships
+real, human-annotated MCQA ground truth. Kept for history.
 **Topic:** Evaluate Screex's "cheap index → Claude reads it" pipeline on action-sequence
 extraction from desktop recordings, using the Sharingan task and metric.
 
