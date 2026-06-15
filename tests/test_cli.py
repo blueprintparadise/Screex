@@ -141,3 +141,23 @@ def test_index_has_text_helper():
     assert _index_has_text([has]) is True
     assert _index_has_text([empty]) is False
     assert _index_has_text([]) is False
+
+
+def test_index_skips_audio_when_unavailable(screencast_video, tmp_path, monkeypatch):
+    import screex.core.audio as audio_mod
+    from screex.cli import index
+    from screex.core.index import ScreenIndex
+    monkeypatch.setattr(audio_mod, "is_available", lambda: False)
+    p = index(str(screencast_video), fps=4.0, out=str(tmp_path / "o"), quiet=True)  # audio default True
+    assert ScreenIndex.load(p).narration == []
+
+
+def test_index_populates_narration_when_available(screencast_video, tmp_path, monkeypatch):
+    import screex.core.audio as audio_mod
+    from screex.cli import index
+    from screex.core.index import NarrationSegment, ScreenIndex
+    monkeypatch.setattr(audio_mod, "is_available", lambda: True)
+    monkeypatch.setattr(audio_mod, "transcribe",
+                        lambda path, model="base": [NarrationSegment(0.0, 1.0, "hello there")])
+    p = index(str(screencast_video), fps=4.0, out=str(tmp_path / "o2"), quiet=True)
+    assert any(n.text == "hello there" for n in ScreenIndex.load(p).narration)

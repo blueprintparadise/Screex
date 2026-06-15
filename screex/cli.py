@@ -102,7 +102,8 @@ def analyze(video, fps=5.0, cols=120, sensitivity=0.06, edge=False, out=None,
 def index(recording, fps=2.0, change_threshold=0.04, thumb_width=320, out=None,
           max_frames=None, keyframe_format="png", keyframe_quality=90,
           dedupe_threshold=0.95, lang=None, quiet=False,
-          text_threshold=0.80, fast=False, motion_epsilon=0.003, ocr_threads=2):
+          text_threshold=0.80, fast=False, motion_epsilon=0.003, ocr_threads=2,
+          audio=True, whisper_model="base"):
     import cv2
 
     from screex.core import ocr, segment
@@ -166,10 +167,20 @@ def index(recording, fps=2.0, change_threshold=0.04, thumb_width=320, out=None,
     if not states:
         raise ValueError(f"no UI states produced from {recording} (empty or unreadable video?)")
 
+    narration = []
+    if audio:
+        import screex.core.audio as audio_mod
+        if audio_mod.is_available():
+            narration = audio_mod.transcribe(str(recording), model=whisper_model)
+            _log(quiet, f"index: transcribed {len(narration)} narration segments")
+        else:
+            _log(quiet, "index: narration skipped — install the audio extra "
+                        "(pip install 'screex[audio]') for spoken-word transcripts")
+
     duration = max(info["duration"], last_t)
     screen_index = ScreenIndex(
         video=recording.name, duration=round(duration, 3),
-        sampled_fps=fps, states=states,
+        sampled_fps=fps, states=states, narration=narration,
     )
     index_path = out_dir / "index.json"
     screen_index.save(index_path)
@@ -229,6 +240,11 @@ def main(argv=None):
     ix.add_argument("--ocr-threads", type=int, default=2,
                     help="onnxruntime intra-op threads for OCR (2 is fastest on most CPUs; "
                          "0 = library default)")
+    ix.add_argument("--no-audio", action="store_true",
+                    help="skip speech-to-text narration (faster; on by default when "
+                         "'screex[audio]' is installed)")
+    ix.add_argument("--whisper-model", default="base",
+                    help="faster-whisper model for narration (tiny/base/small/medium)")
 
     c = sub.add_parser("capture", help="record a short clip from the screen or webcam")
     c.add_argument("--screen", action="store_true", help="capture the screen (needs 'mss')")
@@ -255,6 +271,8 @@ def main(argv=None):
     tr.add_argument("--text-threshold", type=float, default=0.80,
                     help="text-similarity threshold for a new state (0..1)")
     tr.add_argument("--fast", action="store_true", help="motion-only segmentation when building")
+    tr.add_argument("--no-audio", action="store_true", help="skip speech-to-text narration")
+    tr.add_argument("--whisper-model", default="base", help="faster-whisper model for narration")
 
     args = p.parse_args(argv)
     quiet = getattr(args, "quiet", False)
@@ -270,7 +288,8 @@ def main(argv=None):
                      keyframe_format=args.keyframe_format, keyframe_quality=args.keyframe_quality,
                      dedupe_threshold=args.dedupe_threshold, lang=args.lang, quiet=quiet,
                      text_threshold=args.text_threshold, motion_epsilon=args.motion_epsilon,
-                     fast=args.fast, ocr_threads=args.ocr_threads)
+                     fast=args.fast, ocr_threads=args.ocr_threads,
+                     audio=not args.no_audio, whisper_model=args.whisper_model)
         print(f"index: {path}")
     elif args.cmd == "capture":
         if args.screen:
@@ -302,7 +321,8 @@ def main(argv=None):
             si = ScreenIndex.load(args.from_index)
         else:
             idx_path = index(args.recording, fps=args.fps, text_threshold=args.text_threshold,
-                             fast=args.fast, quiet=quiet)
+                             fast=args.fast, quiet=quiet,
+                             audio=not args.no_audio, whisper_model=args.whisper_model)
             si = ScreenIndex.load(idx_path)
         md = format_transcript(si)
         if args.out:
