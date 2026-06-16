@@ -2,6 +2,17 @@ from screex.cli import analyze
 from screex.core.manifest import Manifest
 
 
+def test_cli_rejects_invalid_numeric_flags(capsys):
+    import pytest
+
+    from screex.cli import main
+
+    with pytest.raises(SystemExit):
+        main(["index", "clip.mp4", "--fps", "0"])
+    err = capsys.readouterr().err
+    assert "fps must be greater than 0" in err
+
+
 def test_capture_rejects_multiple_sources():
     import pytest
 
@@ -47,6 +58,34 @@ def test_capture_webcam_passes_controls_by_default(monkeypatch):
     main(["capture", "--seconds", "1", "--device", "3", "--out", "cam.mp4"])
 
     assert calls == [("cam.mp4", 1.0, 15.0, 3)]
+
+
+def test_clean_frames_dir_refuses_user_files(tmp_path):
+    import pytest
+
+    from screex.cli import _clean_frames_dir
+
+    frames = tmp_path / "frames"
+    frames.mkdir()
+    (frames / "notes.txt").write_text("user file", encoding="utf-8")
+
+    with pytest.raises(RuntimeError, match="non-Screex files"):
+        _clean_frames_dir(frames)
+    assert (frames / "notes.txt").exists()
+
+
+def test_clean_frames_dir_removes_legacy_generated_files(tmp_path):
+    from screex.cli import _clean_frames_dir
+
+    frames = tmp_path / "frames"
+    frames.mkdir()
+    (frames / "00000.png").write_bytes(b"x")
+    (frames / "00000_thumb.jpg").write_bytes(b"x")
+    (frames / "00000.txt").write_text("ascii", encoding="utf-8")
+
+    _clean_frames_dir(frames)
+
+    assert list(p.name for p in frames.iterdir()) == [".screex-generated"]
 
 
 def test_analyze_produces_manifest_and_files(moving_square_video, tmp_path):
@@ -275,3 +314,19 @@ def test_index_populates_narration_when_available(screencast_video, tmp_path, mo
                         lambda path, model="base": [NarrationSegment(0.0, 1.0, "hello there")])
     p = index(str(screencast_video), fps=4.0, out=str(tmp_path / "o2"), quiet=True)
     assert any(n.text == "hello there" for n in ScreenIndex.load(p).narration)
+
+
+def test_index_persists_ocr_warnings(screencast_video, tmp_path, monkeypatch):
+    from screex.cli import index
+    from screex.core import ocr
+    from screex.core.index import ScreenIndex
+
+    def fail_text(*args, **kwargs):
+        diagnostics = kwargs.get("diagnostics")
+        if diagnostics is not None:
+            diagnostics.append("OCR failed: RuntimeError: synthetic failure")
+        return []
+
+    monkeypatch.setattr(ocr, "extract_text", fail_text)
+    p = index(str(screencast_video), fps=1.0, out=str(tmp_path / "warn"), quiet=True)
+    assert "synthetic failure" in ScreenIndex.load(p).warnings[0]

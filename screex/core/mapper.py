@@ -33,7 +33,7 @@ def frame_to_ascii(gray: np.ndarray, cols: int, ramp: str = RAMP, edge: bool = F
 
     h, w = gray.shape[:2]
     rows = auto_rows(w, h, cols)
-    small = cv2.resize(gray, (cols, rows), interpolation=cv2.INTER_AREA)
+    small: np.ndarray = cv2.resize(gray, (cols, rows), interpolation=cv2.INTER_AREA)
     if edge:
         small = edge_magnitude(small)
     return gray_to_ascii(small, ramp)

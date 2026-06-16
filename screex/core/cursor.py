@@ -11,6 +11,8 @@ noisy on busy video. It is opt-in (``screex index --interactions``).
 """
 from __future__ import annotations
 
+from typing import Any, cast
+
 
 def _estimate_cursor(prev_gray, cur_gray, min_area: int = 4, max_area_frac: float = 0.01):
     """Return (x, y) of the most likely cursor location between two grayscale frames,
@@ -21,6 +23,8 @@ def _estimate_cursor(prev_gray, cur_gray, min_area: int = 4, max_area_frac: floa
     diff = cv2.absdiff(cur_gray, prev_gray)
     _, thresh = cv2.threshold(diff, 25, 255, cv2.THRESH_BINARY)
     n, _labels, stats, centroids = cv2.connectedComponentsWithStats(thresh, 8)
+    stats = cast(Any, stats)
+    centroids = cast(Any, centroids)
     if n <= 1:
         return None
 
@@ -35,7 +39,7 @@ def _estimate_cursor(prev_gray, cur_gray, min_area: int = 4, max_area_frac: floa
         # Among plausible cursor-sized blobs, prefer the largest (most motion energy).
         if area > best_area:
             best_area = area
-            best = centroids[i]
+            best = (float(centroids[i][0]), float(centroids[i][1]))
     if best is None:
         return None
     return (int(best[0]), int(best[1]))

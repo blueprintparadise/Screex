@@ -76,7 +76,7 @@ def capture_screen(out_path: str, seconds: float, fps: float = 10.0, monitor: in
     with mss.mss() as sct:
         mon = sct.monitors[monitor]
         w, h = mon["width"], mon["height"]
-        fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+        fourcc = cv2.VideoWriter_fourcc(*"mp4v")  # type: ignore[attr-defined]
         writer = cv2.VideoWriter(str(out_path), fourcc, fps, (w, h))
         try:
             n = int(seconds * fps)
@@ -102,7 +102,7 @@ def capture_webcam(out_path: str, seconds: float, fps: float = 15.0, device: int
         raise RuntimeError("cannot open webcam")
     w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)) or 640
     h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)) or 480
-    fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+    fourcc = cv2.VideoWriter_fourcc(*"mp4v")  # type: ignore[attr-defined]
     writer = cv2.VideoWriter(str(out_path), fourcc, fps, (w, h))
     try:
         for _ in range(int(seconds * fps)):

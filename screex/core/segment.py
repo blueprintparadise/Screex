@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any
 
 from screex.core.analyzer import motion_score
 
@@ -10,8 +11,8 @@ class Segment:
     idx: int
     t_start: float
     t_end: float
-    frame_bgr: object  # numpy BGR array: the settled keyframe of this UI state
-    ocr_text: object = None  # list[str] when produced by segment_by_text, else None
+    frame_bgr: Any  # numpy BGR array: the settled keyframe of this UI state
+    ocr_text: list[str] | None = None
 
 
 def segment_stream(frames, change_threshold: float = 0.04):
@@ -38,9 +39,13 @@ def segment_stream(frames, change_threshold: float = 0.04):
             cur_start_t = t
             anchor_gray = gray
         else:
+            assert anchor_gray is not None
             step = motion_score(prev_gray, gray)
             drift = motion_score(anchor_gray, gray)
             if step >= change_threshold or drift >= change_threshold:
+                assert cur_start_t is not None
+                assert last_t is not None
+                assert last_bgr is not None
                 yield Segment(seg_idx, cur_start_t, last_t, last_bgr)
                 seg_idx += 1
                 cur_start_t = t
@@ -50,6 +55,8 @@ def segment_stream(frames, change_threshold: float = 0.04):
         last_bgr = bgr
 
     if last_bgr is not None:
+        assert cur_start_t is not None
+        assert last_t is not None
         yield Segment(seg_idx, cur_start_t, last_t, last_bgr)
 
 
@@ -80,6 +87,9 @@ def segment_by_text(frames, text_fn, text_threshold: float = 0.80, motion_epsilo
         elif motion_score(prev_gray, gray) >= motion_epsilon:
             new_text = text_fn(bgr)
             if text_similarity(state_text, new_text) < text_threshold:
+                assert cur_start_t is not None
+                assert last_t is not None
+                assert last_bgr is not None
                 yield Segment(seg_idx, cur_start_t, last_t, last_bgr, state_text)
                 seg_idx += 1
                 cur_start_t = t
@@ -89,4 +99,6 @@ def segment_by_text(frames, text_fn, text_threshold: float = 0.80, motion_epsilo
         last_bgr = bgr
 
     if last_bgr is not None:
+        assert cur_start_t is not None
+        assert last_t is not None
         yield Segment(seg_idx, cur_start_t, last_t, last_bgr, state_text)

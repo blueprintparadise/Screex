@@ -28,7 +28,7 @@ _TOKEN = re.compile(r"\S+")
 def _shannon_entropy(s: str) -> float:
     if not s:
         return 0.0
-    counts = {}
+    counts: dict[str, int] = {}
     for ch in s:
         counts[ch] = counts.get(ch, 0) + 1
     n = len(s)

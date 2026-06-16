@@ -39,6 +39,47 @@ def test_screen_index_loads_without_narration_key():
     d = {"video": "x.mp4", "duration": 1.0, "sampled_fps": 2.0, "states": []}
     si = ScreenIndex.from_dict(d)
     assert si.narration == []
+    assert si.warnings == []
+
+
+def test_screen_index_rejects_future_schema():
+    import pytest
+
+    d = {
+        "schema_version": 999,
+        "video": "x.mp4",
+        "duration": 1.0,
+        "sampled_fps": 2.0,
+        "states": [],
+    }
+    with pytest.raises(ValueError, match="unsupported ScreenIndex schema_version"):
+        ScreenIndex.from_dict(d)
+
+
+def test_screen_index_reports_missing_required_fields():
+    import pytest
+
+    with pytest.raises(ValueError, match="missing video"):
+        ScreenIndex.from_dict({"duration": 1.0, "sampled_fps": 2.0, "states": []})
+
+
+def test_screen_index_loads_older_state_without_text_fields():
+    d = {
+        "video": "x.mp4",
+        "duration": 1.0,
+        "sampled_fps": 2.0,
+        "states": [{
+            "idx": 0,
+            "t_start": 0.0,
+            "t_end": 1.0,
+            "thumbnail": "frames/0_thumb.png",
+            "keyframe": "frames/0.png",
+        }],
+    }
+    si = ScreenIndex.from_dict(d)
+    assert si.states[0].ocr_text == []
+    assert si.states[0].text_added == []
+    assert si.states[0].text_removed == []
 
 
 def _compact_index():
