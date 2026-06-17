@@ -40,6 +40,11 @@ a `thumbnail` and full-res `keyframe`. The on-screen text is plain text — read
 states is cheap. If the recording was narrated and `screex[audio]` is installed, the index also has a `narration` field (timestamped spoken text) — use it to explain *why* each step happened and to answer questions about what the narrator said (`--no-audio` skips it).
 
 ## Optional fields (enable when useful)
+- `--events`: adds an `event` per state (after the first) — a typed action
+  (`navigate`/`type`/`click`/`open_dialog`/`error`/`scroll`/`edit`) grounded to the changed
+  screen `region`. When present it is the **strongest** "what did the user do" signal, above
+  `text_added`. It is still heuristic (inferred from pixels + OCR, no real click events), so
+  trust `text_added`/`ocr_text` when they disagree.
 - `--interactions`: adds an `interactions` array per state (`{t, x, y, label}`) — a *heuristic*
   estimate of where the user was acting and the nearest on-screen text. Great for "what did
   they click?" questions, but it's approximate (no real click events) — trust `text_added`

@@ -200,6 +200,19 @@ def test_index_with_boxes(screencast_video, tmp_path):
             assert len(b["box"]) == 4
 
 
+def test_index_events_populates_event(screencast_video, tmp_path):
+    from screex.cli import index
+    from screex.core.index import ScreenIndex
+    out = tmp_path / "events_out"
+    index(str(screencast_video), fps=4.0, out=str(out), quiet=True, audio=False, events=True)
+    si = ScreenIndex.load(out / "index.json")
+    assert si.schema_version == 2
+    # At least one transition is classified (later states carry text_added -> an event).
+    assert any(s.event for s in si.states[1:])
+    # Boxes were computed only to classify; without --boxes they must not leak into output.
+    assert all(s.boxes == [] for s in si.states)
+
+
 def test_index_redacts_secret(secret_video, tmp_path):
     from screex.cli import index
     from screex.core.index import ScreenIndex

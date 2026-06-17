@@ -137,3 +137,26 @@ def test_compact_dict_no_universal_lines_omits_persistent_ui():
     d = si.compact_dict()
     assert "persistent_ui" not in d
     assert d["states"][0]["ocr_text"] == ["a"]
+
+
+def test_screenstate_event_roundtrips():
+    from screex.core.index import ScreenIndex, ScreenState
+    st = ScreenState(idx=0, t_start=0.0, t_end=1.0, thumbnail="t.png", keyframe="k.png",
+                     ocr_text=["hi"], event={"type": "click", "t": 0.0,
+                                              "region": [1, 2, 3, 4], "confidence": 0.6,
+                                              "label": "Save"})
+    si = ScreenIndex(video="v.mp4", duration=1.0, sampled_fps=2.0, states=[st])
+    again = ScreenIndex.from_dict(si.to_dict())
+    assert again.states[0].event["type"] == "click"
+    assert again.states[0].event["label"] == "Save"
+
+
+def test_v1_index_loads_without_event():
+    from screex.core.index import ScreenIndex
+    v1 = {
+        "schema_version": 1, "video": "v.mp4", "duration": 1.0, "sampled_fps": 2.0,
+        "states": [{"idx": 0, "t_start": 0.0, "t_end": 1.0,
+                    "thumbnail": "t.png", "keyframe": "k.png", "ocr_text": ["hi"]}],
+    }
+    si = ScreenIndex.from_dict(v1)
+    assert si.states[0].event == {}

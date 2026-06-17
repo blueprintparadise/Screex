@@ -185,7 +185,7 @@ def index(recording, fps=2.0, change_threshold=0.04, thumb_width=320, out=None,
           dedupe_threshold=0.95, lang=None, quiet=False,
           text_threshold=0.80, fast=False, motion_epsilon=0.003, ocr_threads=2,
           audio=True, whisper_model="base",
-          boxes=False, redact=False, interactions=False):
+          boxes=False, redact=False, interactions=False, events=False):
     import cv2
 
     from screex.core import ocr, segment
@@ -209,7 +209,7 @@ def index(recording, fps=2.0, change_threshold=0.04, thumb_width=320, out=None,
     prev_ocr: list[str] = []
     if redact:
         from screex.core import redact as redact_mod
-    need_boxes = boxes or redact or interactions
+    need_boxes = boxes or redact or interactions or events
 
     state_boxes = []  # kf boxes parallel to `states` (for interaction labeling)
     last_t = 0.0
@@ -276,7 +276,7 @@ def index(recording, fps=2.0, change_threshold=0.04, thumb_width=320, out=None,
             idx=seg.idx, t_start=round(seg.t_start, 3), t_end=round(seg.t_end, 3),
             thumbnail=thumb_rel, keyframe=key_rel,
             ocr_text=text, text_added=added, text_removed=removed,
-            boxes=(kf_boxes or []) if boxes else [],
+            boxes=(kf_boxes or []) if (boxes or events) else [],
         ))
         state_boxes.append(kf_boxes or [])
         _log(quiet, f"index: state {len(states)} @ {seg.t_start:.1f}-{seg.t_end:.1f}s "
@@ -298,6 +298,30 @@ def index(recording, fps=2.0, change_threshold=0.04, thumb_width=320, out=None,
             st.interactions = [{"t": st.t_end, "x": pt[0], "y": pt[1], "label": label}]
             hits += 1
         _log(quiet, f"index: estimated {hits} interaction hotspot(s)")
+
+    if events:
+        from screex.core import events as events_mod
+        from screex.core import regiondiff
+        prev_kf = None
+        for i, st in enumerate(states):
+            cur_kf = cv2.imread(str(out_dir / st.keyframe))
+            region = regiondiff.changed_region(prev_kf, cur_kf) if i > 0 else None
+            inter = st.interactions[0] if st.interactions else None
+            prev_state = states[i - 1] if i > 0 else st
+            try:
+                ev = events_mod.classify_event(prev_state, st, region, inter)
+            except Exception as exc:  # noqa: BLE001 - never abort indexing on a bad state
+                diagnostics.append(f"event classify failed @state {st.idx}: "
+                                   f"{type(exc).__name__}: {exc}")
+                ev = {}
+            if i > 0 and ev:
+                st.event = ev
+            prev_kf = cur_kf
+        # Drop the boxes we only computed to classify, unless the user asked for them.
+        if not boxes:
+            for st in states:
+                st.boxes = []
+        _log(quiet, f"index: classified {sum(1 for s in states if s.event)} event(s)")
 
     if audio:
         import screex.core.audio as audio_mod
@@ -411,6 +435,9 @@ def main(argv=None):
     ix.add_argument("--interactions", action="store_true",
                     help="estimate per-state cursor/interaction hotspots (heuristic) and "
                          "label them with the nearest on-screen text")
+    ix.add_argument("--events", action="store_true",
+                    help="classify each state transition into a typed action event "
+                         "(navigate/type/click/open_dialog/error/scroll/edit)")
 
     c = sub.add_parser("capture", help="record a short clip from the screen or webcam")
     capture_source = c.add_mutually_exclusive_group()
@@ -453,6 +480,8 @@ def main(argv=None):
     tr.add_argument("--redact", action="store_true", help="mask secrets/PII when building the index")
     tr.add_argument("--interactions", action="store_true",
                     help="estimate cursor/interaction hotspots and show them in the transcript")
+    tr.add_argument("--events", action="store_true",
+                    help="classify and render typed action events in the transcript")
 
     args = p.parse_args(argv)
     quiet = getattr(args, "quiet", False)
@@ -470,7 +499,8 @@ def main(argv=None):
                      text_threshold=args.text_threshold, motion_epsilon=args.motion_epsilon,
                      fast=args.fast, ocr_threads=args.ocr_threads,
                      audio=not args.no_audio, whisper_model=args.whisper_model,
-                     boxes=args.boxes, redact=args.redact, interactions=args.interactions)
+                     boxes=args.boxes, redact=args.redact, interactions=args.interactions,
+                     events=args.events)
         print(f"index: {path}")
     elif args.cmd == "capture":
         if args.screen:
@@ -508,7 +538,8 @@ def main(argv=None):
             idx_path = index(args.recording, fps=args.fps, text_threshold=args.text_threshold,
                              fast=args.fast, quiet=quiet,
                              audio=not args.no_audio, whisper_model=args.whisper_model,
-                             redact=args.redact, interactions=args.interactions)
+                             redact=args.redact, interactions=args.interactions,
+                             events=args.events)
             si = ScreenIndex.load(idx_path)
         md = format_transcript(si)
         if args.out:
