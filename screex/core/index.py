@@ -18,6 +18,7 @@ class ScreenState:
     text_removed: list[str] = field(default_factory=list)
     boxes: list[dict[str, Any]] = field(default_factory=list)
     interactions: list[dict[str, Any]] = field(default_factory=list)
+    event: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -27,7 +28,7 @@ class NarrationSegment:
     text: str
 
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 
 @dataclass
@@ -118,6 +119,7 @@ class ScreenIndex:
                 text_removed=payload.get("text_removed", []),
                 boxes=payload.get("boxes", []),
                 interactions=payload.get("interactions", []),
+                event=payload.get("event", {}),
             )
 
         return cls(
