@@ -12,11 +12,36 @@ def _narration_for(narration, t_start, t_end) -> str:
     return " ".join(spoken)
 
 
+def _format_event(ev) -> str:
+    t = ev.get("type")
+    label, value, field = ev.get("label"), ev.get("value"), ev.get("field")
+    if t == "click":
+        return f"👆 Clicked “{label}”" if label else "👆 Clicked"
+    if t == "type":
+        return f"⌨ Typed “{value}” into {field}" if field else f"⌨ Typed “{value}”"
+    if t == "navigate":
+        return f"➡ Navigated to {value}" if value else "➡ Navigated"
+    if t == "open_dialog":
+        return f"🪟 Opened dialog: {label}" if label else "🪟 Opened dialog"
+    if t == "error":
+        return f"⚠ Error: {label}" if label else "⚠ Error"
+    if t == "scroll":
+        return "↕ Scrolled"
+    if t == "edit":
+        return "✏ Edited"
+    return ""
+
+
 def format_transcript(screen_index) -> str:
     """Render a ScreenIndex to a markdown step transcript."""
     lines = [f"# Transcript — {screen_index.video}  ({_fmt_time(screen_index.duration)})", ""]
     for n, st in enumerate(screen_index.states, start=1):
         lines.append(f"## {_fmt_time(st.t_start)}–{_fmt_time(st.t_end)}  ·  State {n}")
+        ev = getattr(st, "event", None) or {}
+        if ev:
+            event_line = _format_event(ev)
+            if event_line:
+                lines.append(event_line)
         if st.ocr_text:
             lines.append(" · ".join(st.ocr_text))
         if st.text_added:

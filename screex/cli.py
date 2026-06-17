@@ -480,6 +480,8 @@ def main(argv=None):
     tr.add_argument("--redact", action="store_true", help="mask secrets/PII when building the index")
     tr.add_argument("--interactions", action="store_true",
                     help="estimate cursor/interaction hotspots and show them in the transcript")
+    tr.add_argument("--events", action="store_true",
+                    help="classify and render typed action events in the transcript")
 
     args = p.parse_args(argv)
     quiet = getattr(args, "quiet", False)
@@ -536,7 +538,8 @@ def main(argv=None):
             idx_path = index(args.recording, fps=args.fps, text_threshold=args.text_threshold,
                              fast=args.fast, quiet=quiet,
                              audio=not args.no_audio, whisper_model=args.whisper_model,
-                             redact=args.redact, interactions=args.interactions)
+                             redact=args.redact, interactions=args.interactions,
+                             events=args.events)
             si = ScreenIndex.load(idx_path)
         md = format_transcript(si)
         if args.out:

@@ -19,6 +19,20 @@ def test_format_transcript():
     assert md.index("**Gone:** Login") > md.index("## 0:03–1:05")
 
 
+def test_transcript_renders_typed_event():
+    from screex.core.index import ScreenIndex, ScreenState
+    from screex.transcript import format_transcript
+    st0 = ScreenState(idx=0, t_start=0.0, t_end=1.0, thumbnail="t0.png", keyframe="k0.png",
+                      ocr_text=["Settings"])
+    st1 = ScreenState(idx=1, t_start=2.0, t_end=3.0, thumbnail="t1.png", keyframe="k1.png",
+                      ocr_text=["Settings", "Saved"],
+                      event={"type": "click", "t": 2.0, "region": [0, 0, 1, 1],
+                             "confidence": 0.6, "label": "Save"})
+    si = ScreenIndex(video="v.mp4", duration=3.0, sampled_fps=2.0, states=[st0, st1])
+    md = format_transcript(si)
+    assert "Clicked" in md and "Save" in md
+
+
 def test_format_transcript_interleaves_narration():
     from screex.core.index import NarrationSegment, ScreenIndex, ScreenState
     si = ScreenIndex(
