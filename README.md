@@ -125,6 +125,7 @@ path/to/recording.screex/
 | `--boxes` | off | include per-line OCR bounding boxes `[x,y,w,h]` in each state (for spatial Q&A / tooling) |
 | `--redact` | off | mask secrets/PII (API keys, emails, tokens, cards, SSNs) in `ocr_text`/`text_*`/`narration` **and blur those regions in keyframes** |
 | `--interactions` | off | estimate per-state cursor/interaction hotspots (heuristic) and label them with the nearest on-screen text |
+| `--events` | off | classify each state transition into a typed action event (`navigate`/`type`/`click`/`open_dialog`/`error`/`scroll`/`edit`), region-grounded |
 | `--dedupe-threshold` | `0.95` | merge consecutive states whose on-screen text is at least this similar (0–1); set `>1` to disable |
 | `--thumb-width` | `320` | thumbnail width in px |
 | `--keyframe-format` | `png` | `png` (lossless) or `jpg` (much smaller) for keyframes/thumbnails |
@@ -155,6 +156,9 @@ did), `thumbnail` / `keyframe` paths, and optional `warnings` for recoverable di
 as OCR failures on individual frames. With `--boxes`, each state also carries `boxes`
 (per-line `{text, box:[x,y,w,h]}`); with `--interactions`, each state may carry
 `interactions` (`{t, x, y, label}` estimated cursor hotspots).
+With `--events`, each state (after the first) may carry an `event`
+(`{type, t, region:[x,y,w,h], confidence, label?, field?, value?}`) — a typed,
+region-grounded estimate of what the user did, the strongest "what happened" signal.
 
 ### Privacy / redaction
 Screex indexes whatever is on screen — for bug repros that often includes **passwords, API
