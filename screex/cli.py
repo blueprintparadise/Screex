@@ -218,7 +218,8 @@ def index(recording, fps=2.0, change_threshold=0.04, thumb_width=320, out=None,
     def extract_text(bgr):
         return ocr.extract_text(bgr, lang=lang, threads=ocr_threads, diagnostics=diagnostics)
 
-    frames = source.iter_frames(str(recording), fps, max_frames=max_frames)
+    frames = source.iter_frames(str(recording), fps, max_frames=max_frames,
+                                diagnostics=diagnostics)
     tracker = None
     if interactions:
         from screex.core import cursor

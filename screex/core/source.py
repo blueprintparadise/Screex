@@ -1,12 +1,19 @@
 from __future__ import annotations
 
+import os
+
 
 def _open(path):
     import cv2
 
     cap = cv2.VideoCapture(str(path))
     if not cap.isOpened():
-        raise FileNotFoundError(f"cannot open video: {path}")
+        cap.release()
+        if not os.path.exists(path):
+            raise FileNotFoundError(f"no such video file: {path}")
+        raise ValueError(
+            f"cannot decode video (corrupt or unsupported codec/container?): {path}"
+        )
     return cap
 
 
@@ -25,13 +32,18 @@ def video_info(path: str) -> dict:
     return {"fps": fps, "count": count, "width": w, "height": h, "duration": duration}
 
 
-def iter_frames(path: str, sample_fps: float, max_frames: int | None = None):
+def iter_frames(path: str, sample_fps: float, max_frames: int | None = None,
+                diagnostics: list[str] | None = None):
     """Yield (out_idx, t_seconds, bgr) for sampled frames.
 
     The timestamp prefers the container's real position (CAP_PROP_POS_MSEC), which is
     correct for variable-frame-rate recordings, and falls back to raw_idx/native only
     when the container does not report a position. ``max_frames`` caps the number of
-    sampled frames returned (None = no cap)."""
+    sampled frames returned (None = no cap).
+
+    If a frame fails to decode mid-stream (a truncated or corrupt recording), iteration
+    stops cleanly with whatever was decoded so far; when ``diagnostics`` is provided, a
+    recoverable warning is appended to it rather than raising."""
     cap = _open(path)
     import cv2
 
@@ -47,6 +59,11 @@ def iter_frames(path: str, sample_fps: float, max_frames: int | None = None):
             if raw_idx % step == 0:
                 ok, frame = cap.retrieve()
                 if not ok:
+                    if diagnostics is not None:
+                        diagnostics.append(
+                            f"decoding stopped early near frame {raw_idx} "
+                            f"(truncated or corrupt video?)"
+                        )
                     break
                 t = pos_msec / 1000.0 if pos_msec and pos_msec > 0 else raw_idx / native
                 yield out_idx, t, frame

@@ -1,4 +1,36 @@
+import pytest
+
 from screex.core import source
+
+
+def test_open_missing_file_raises_filenotfound(tmp_path):
+    missing = tmp_path / "does_not_exist.mp4"
+    with pytest.raises(FileNotFoundError, match="no such video file"):
+        source.video_info(str(missing))
+
+
+def test_open_corrupt_file_raises_valueerror(tmp_path):
+    bogus = tmp_path / "corrupt.mp4"
+    bogus.write_bytes(b"not a video at all")
+    with pytest.raises(ValueError, match="cannot decode video"):
+        source.video_info(str(bogus))
+
+
+def test_iter_frames_truncated_video_is_graceful(moving_square_video):
+    # A half-written file is either rejected at open (clear ValueError) or read
+    # partially without crashing; in the partial case any diagnostics are strings.
+    data = moving_square_video.read_bytes()
+    truncated = moving_square_video.parent / "trunc.avi"
+    truncated.write_bytes(data[: len(data) // 2])
+
+    diagnostics: list[str] = []
+    try:
+        frames = list(source.iter_frames(str(truncated), sample_fps=5.0,
+                                          diagnostics=diagnostics))
+    except ValueError:
+        return  # opening a truncated container failed outright — the clear-error path
+    assert isinstance(frames, list)
+    assert all(isinstance(d, str) for d in diagnostics)
 
 
 def test_video_info(moving_square_video):
