@@ -1,9 +1,23 @@
+import os
+
 from screex.core import audio
 from screex.core.index import NarrationSegment
 
 
 def test_is_available_returns_bool():
     assert isinstance(audio.is_available(), bool)
+
+
+def test_ensure_openmp_compat_sets_guard(monkeypatch):
+    monkeypatch.delenv("KMP_DUPLICATE_LIB_OK", raising=False)
+    audio._ensure_openmp_compat()
+    assert os.environ["KMP_DUPLICATE_LIB_OK"] == "TRUE"
+
+
+def test_ensure_openmp_compat_respects_explicit_value(monkeypatch):
+    monkeypatch.setenv("KMP_DUPLICATE_LIB_OK", "FALSE")
+    audio._ensure_openmp_compat()
+    assert os.environ["KMP_DUPLICATE_LIB_OK"] == "FALSE"
 
 
 def test_transcribe_parses_and_strips_segments(monkeypatch):
