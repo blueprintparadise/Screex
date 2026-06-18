@@ -1,3 +1,10 @@
+import os
+
+# faster-whisper (torch) and rapidocr-onnxruntime (onnxruntime) ship separate OpenMP runtimes;
+# on Windows, loading both in one process aborts with a native fault. setdefault before any test
+# imports them keeps the suite green when the audio extra is installed. See screex.core.audio.
+os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE")
+
 import numpy as np
 import pytest
 
