@@ -224,9 +224,15 @@ recording → sample frames → segment into UI states → per state: OCR text +
 ## Development
 
 ```bash
-pip install -e ".[test]"
+pip install -e ".[dev]"     # ruff + mypy + pytest + mss
+ruff check screex tests
+python -m mypy screex
 python -m pytest -q
 ```
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the full contributor guide. **On Windows**, if you
+install the `audio` extra, set `KMP_DUPLICATE_LIB_OK=TRUE` before running the tests to avoid an
+OpenMP runtime conflict between PyTorch (faster-whisper) and ONNX Runtime (RapidOCR).
 
 ---
 
