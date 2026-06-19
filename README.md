@@ -89,7 +89,7 @@ pip install -e .          # add ".[test]" to also install pytest
 ```
 
 Both give you a `screex` command (entry point `screex.cli:main`). Requires Python ≥ 3.9.
-First run downloads the small RapidOCR ONNX models automatically.
+The OCR models ship inside the `rapidocr-onnxruntime` dependency, so no separate download is needed.
 
 ---
 
