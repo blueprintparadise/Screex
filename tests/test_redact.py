@@ -44,6 +44,25 @@ def test_clean_line_unchanged():
     assert kinds == []
 
 
+def test_redacts_multiple_distinct_secrets_in_order():
+    # Two different secrets on one line: both masked, left-to-right, plain text preserved.
+    out, kinds = redact.redact_line("email rushi@acme.io key sk-live-9f2a7c4d8e1b2a3c")
+    assert out == "email [REDACTED:email] key [REDACTED:api_key]"
+    assert kinds == ["email", "api_key"]
+
+
+def test_overlapping_matches_collapse_to_one_span():
+    # A token that matches BOTH the api_key pattern and the high-entropy heuristic must be
+    # reported once — find_secrets keeps the earliest, longest span — not double-masked.
+    text = "token ghp_aZ9k2Lp7Qw3Xr8Tn5Vb1Yc4 here"
+    spans = redact.find_secrets(text)
+    assert len(spans) == 1
+    assert spans[0][2] == "api_key"
+    out, kinds = redact.redact_line(text)
+    assert kinds == ["api_key"]
+    assert out.count("[REDACTED:") == 1
+
+
 def test_has_secret():
     assert redact.has_secret("email me at a@b.com")
     assert not redact.has_secret("just a normal sentence")
