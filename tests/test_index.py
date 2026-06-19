@@ -139,6 +139,18 @@ def test_compact_dict_no_universal_lines_omits_persistent_ui():
     assert d["states"][0]["ocr_text"] == ["a"]
 
 
+def test_compact_dict_single_state_keeps_text():
+    # With one state there is no shared chrome to factor out: the state's text must be
+    # left intact rather than hoisted wholesale into persistent_ui (which would empty it).
+    si = ScreenIndex(video="x.mp4", duration=2.0, sampled_fps=1.0, states=[
+        ScreenState(0, 0.0, 2.0, "t.png", "k.png",
+                    ocr_text=["Dashboard", "Welcome back", "Projects: 3"]),
+    ])
+    d = si.compact_dict()
+    assert "persistent_ui" not in d
+    assert d["states"][0]["ocr_text"] == ["Dashboard", "Welcome back", "Projects: 3"]
+
+
 def test_screenstate_event_roundtrips():
     from screex.core.index import ScreenIndex, ScreenState
     st = ScreenState(idx=0, t_start=0.0, t_end=1.0, thumbnail="t.png", keyframe="k.png",

@@ -64,7 +64,8 @@ class ScreenIndex:
         - ``factor_persistent``: hoist OCR lines present in *every* state into a single
           top-level ``persistent_ui`` block, leaving each state only its unique text. Lossless
           at the text-line-set level: a state's original line set is ``persistent_ui`` united
-          with its remaining ``ocr_text``.
+          with its remaining ``ocr_text``. Only applied with 2+ states — with a single state
+          there is no shared chrome to factor out, so its text is left intact.
         - ``drop_boxes``/``drop_interactions``: omit per-line OCR coordinates and cursor
           hotspots — auxiliary metadata not needed for text-level understanding (the text in
           ``boxes`` already appears in ``ocr_text``).
@@ -81,7 +82,7 @@ class ScreenIndex:
                 s.pop("boxes", None)
             if drop_interactions:
                 s.pop("interactions", None)
-        if factor_persistent and states:
+        if factor_persistent and len(states) > 1:
             line_sets = [set(s.get("ocr_text", [])) for s in states]
             persistent = set.intersection(*line_sets) if line_sets else set()
             if persistent:
