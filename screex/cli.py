@@ -185,7 +185,8 @@ def index(recording, fps=2.0, change_threshold=0.04, thumb_width=320, out=None,
           dedupe_threshold=0.95, lang=None, quiet=False,
           text_threshold=0.80, fast=False, motion_epsilon=0.003, ocr_threads=2,
           audio=True, whisper_model="base",
-          boxes=False, redact=False, interactions=False, events=False):
+          boxes=False, redact=False, interactions=False, events=False,
+          keyframe_budget=None):
     import cv2
 
     from screex.core import ocr, segment
@@ -324,6 +325,16 @@ def index(recording, fps=2.0, change_threshold=0.04, thumb_width=320, out=None,
                 st.boxes = []
         _log(quiet, f"index: classified {sum(1 for s in states if s.event)} event(s)")
 
+    if keyframe_budget:
+        from screex.core import curate
+        sharpness = []
+        for st in states:
+            kf = cv2.imread(str(out_dir / st.keyframe), cv2.IMREAD_GRAYSCALE)
+            sharpness.append(float(cv2.Laplacian(kf, cv2.CV_64F).var()) if kf is not None else 0.0)
+        curate.score_states(states, sharpness)
+        _log(quiet, f"index: scored salience for {len(states)} state(s); "
+                    f"curated budget {keyframe_budget}")
+
     if audio:
         import screex.core.audio as audio_mod
         if audio_mod.is_available():
@@ -439,6 +450,10 @@ def main(argv=None):
     ix.add_argument("--events", action="store_true",
                     help="classify each state transition into a typed action event "
                          "(navigate/type/click/open_dialog/error/scroll/edit)")
+    ix.add_argument("--keyframe-budget", type=lambda v: _positive_int("keyframe budget", v),
+                    default=None,
+                    help="score each state's salience (text-change + keyframe sharpness + event) "
+                         "so compact_dict can surface the N most informative curated keyframes")
 
     c = sub.add_parser("capture", help="record a short clip from the screen or webcam")
     capture_source = c.add_mutually_exclusive_group()
@@ -501,7 +516,7 @@ def main(argv=None):
                      fast=args.fast, ocr_threads=args.ocr_threads,
                      audio=not args.no_audio, whisper_model=args.whisper_model,
                      boxes=args.boxes, redact=args.redact, interactions=args.interactions,
-                     events=args.events)
+                     events=args.events, keyframe_budget=args.keyframe_budget)
         print(f"index: {path}")
     elif args.cmd == "capture":
         if args.screen:
