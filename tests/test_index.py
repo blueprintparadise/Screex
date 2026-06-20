@@ -151,6 +151,28 @@ def test_compact_dict_single_state_keeps_text():
     assert d["states"][0]["ocr_text"] == ["Dashboard", "Welcome back", "Projects: 3"]
 
 
+def test_compact_dict_surfaces_curated_keyframes_when_budgeted():
+    si = _compact_index()
+    for i, s in enumerate(si.states):
+        s.salience = float(i)                          # state 2 most salient, state 0 least
+    d = si.compact_dict(keyframe_budget=2)
+    assert "curated_keyframes" in d
+    assert len(d["curated_keyframes"]) == 2
+    assert all({"idx", "t_start", "keyframe", "salience"} <= set(k) for k in d["curated_keyframes"])
+    assert "curated_keyframes" not in si.compact_dict()   # default (no budget) omits it
+
+
+def test_salience_roundtrips_and_defaults_to_zero():
+    st = ScreenState(0, 0.0, 1.0, "t.png", "k.png", ocr_text=["hi"], salience=0.42)
+    si = ScreenIndex(video="v.mp4", duration=1.0, sampled_fps=2.0, states=[st])
+    assert si.to_dict()["states"][0]["salience"] == 0.42
+    assert ScreenIndex.from_dict(si.to_dict()).states[0].salience == 0.42
+    legacy = {"video": "v.mp4", "duration": 1.0, "sampled_fps": 2.0,
+              "states": [{"idx": 0, "t_start": 0.0, "t_end": 1.0,
+                          "thumbnail": "t.png", "keyframe": "k.png"}]}
+    assert ScreenIndex.from_dict(legacy).states[0].salience == 0.0
+
+
 def test_screenstate_event_roundtrips():
     from screex.core.index import ScreenIndex, ScreenState
     st = ScreenState(idx=0, t_start=0.0, t_end=1.0, thumbnail="t.png", keyframe="k.png",
