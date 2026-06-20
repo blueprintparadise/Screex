@@ -58,6 +58,36 @@ It prints state count, on-screen-text tokens, escalated-image tokens, the baseli
 every-frame-as-image cost, and the cost ratio (`Screex / baseline`). These are coarse
 relative estimates, not billing promises.
 
+## Accuracy
+
+Cost is only half the claim — Screex should be *near-as-accurate* as raw frames, not just cheaper.
+The accuracy harness scores two arms (the Screex index vs uniform-`N` raw frames) on a small set of
+multiple-choice questions bucketed by type (`action` / `state` / `count` / `visual`), reporting
+**accuracy AND tokens per bucket** so each accuracy change is provable.
+
+Provide a `qa.jsonl` with one MCQ per line:
+
+```json
+{"clip": "browser-login.mp4", "question": "What error appeared?", "choices": ["A) 404", "B) invalid API key", "C) timeout"], "answer": "B", "type": "state"}
+```
+
+```bash
+python scripts/eval.py --qa qa.jsonl --clips-dir ./clips --frames 8 --view compact
+```
+
+Output is a per-bucket table:
+
+```
+| bucket | n | index_acc | frames_acc | index_tokens | frames_tokens |
+```
+
+The **answerer** is pluggable. The default `mock` answerer is deterministic and offline (it reads
+the text view) — useful for CI and for validating the harness, but **not** a real accuracy signal.
+For a real comparison use `--answerer claude` (needs `pip install 'screex[eval]'` and
+`ANTHROPIC_API_KEY`); the index arm sees the compact index text and the frames arm sees the sampled
+images. `--view transcript` shows the markdown step transcript to the index arm instead of the
+compact JSON.
+
 ## Results Log
 
 | date | clip | fps | states | escalated images | screex tokens | baseline tokens | cost ratio | accuracy notes |
