@@ -515,6 +515,8 @@ def main(argv=None):
                     help="only states with this typed event (navigate/type/click/...)")
     se.add_argument("--json", action="store_true", help="print hits as JSON")
 
+    sub.add_parser("mcp", help="run the Screex MCP server over stdio (needs 'screex[mcp]')")
+
     args = p.parse_args(argv)
     quiet = getattr(args, "quiet", False)
     if args.cmd == "analyze":
@@ -605,6 +607,12 @@ def main(argv=None):
                 extra = f"  {h['matches']}" if h["matches"] else ""
                 print(f"state {h['idx']}  {h['t_start']:.1f}-{h['t_end']:.1f}s{tag}{extra}")
             print(f"# {len(hits)} state(s)", file=sys.stderr)
+    elif args.cmd == "mcp":
+        from screex import mcp_server
+        try:
+            mcp_server.serve()
+        except RuntimeError as exc:
+            p.error(str(exc))
 
 
 if __name__ == "__main__":

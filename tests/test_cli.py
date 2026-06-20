@@ -405,3 +405,16 @@ def test_cli_transcript_format_srt(tmp_path, capsys):
     out = capsys.readouterr().out
     assert "00:00:00,000 --> 00:00:03,000" in out
     assert "Open Settings" in out
+
+
+def test_cli_mcp_without_extra_errors(capsys):
+    import importlib.util
+
+    import pytest
+
+    from screex.cli import main
+    if importlib.util.find_spec("mcp") is not None:
+        pytest.skip("mcp installed — serve() would block")
+    with pytest.raises(SystemExit):
+        main(["mcp"])
+    assert "screex[mcp]" in capsys.readouterr().err
