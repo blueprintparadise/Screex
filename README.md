@@ -126,6 +126,7 @@ path/to/recording.screex/
 | `--redact` | off | mask secrets/PII (API keys, emails, tokens, cards, SSNs) in `ocr_text`/`text_*`/`narration` **and blur those regions in keyframes** |
 | `--interactions` | off | estimate per-state cursor/interaction hotspots (heuristic) and label them with the nearest on-screen text |
 | `--events` | off | classify each state transition into a typed action event (`navigate`/`type`/`click`/`open_dialog`/`error`/`scroll`/`edit`), region-grounded |
+| `--keyframe-budget` | _none_ | score each state's `salience` (text-change + keyframe sharpness + event) so `compact_dict(keyframe_budget=N)` can surface the N most informative, temporally-spread **curated keyframes** for an agent to escalate to |
 | `--dedupe-threshold` | `0.95` | merge consecutive states whose on-screen text is at least this similar (0–1); set `>1` to disable |
 | `--thumb-width` | `320` | thumbnail width in px |
 | `--keyframe-format` | `png` | `png` (lossless) or `jpg` (much smaller) for keyframes/thumbnails |
