@@ -498,6 +498,8 @@ def main(argv=None):
                     help="estimate cursor/interaction hotspots and show them in the transcript")
     tr.add_argument("--events", action="store_true",
                     help="classify and render typed action events in the transcript")
+    tr.add_argument("--format", choices=["md", "json", "srt", "vtt"], default="md",
+                    help="output format: md (default), json (compact index), srt, or vtt")
 
     nf = sub.add_parser("info", help="summarize a built index.json")
     nf.add_argument("index", help="path to an index.json")
@@ -559,7 +561,7 @@ def main(argv=None):
             print(f"installed skill: {target}")
     elif args.cmd == "transcript":
         from screex.core.index import ScreenIndex
-        from screex.transcript import format_transcript
+        from screex.transcript import FORMATTERS
         if args.from_index:
             si = ScreenIndex.load(args.from_index)
         else:
@@ -571,12 +573,12 @@ def main(argv=None):
                              redact=args.redact, interactions=args.interactions,
                              events=args.events)
             si = ScreenIndex.load(idx_path)
-        md = format_transcript(si)
+        rendered = FORMATTERS[args.format](si)
         if args.out:
-            Path(args.out).write_text(md, encoding="utf-8")
+            Path(args.out).write_text(rendered, encoding="utf-8")
             print(f"transcript: {args.out}")
         else:
-            print(md)
+            print(rendered)
     elif args.cmd == "info":
         import json as _json
 

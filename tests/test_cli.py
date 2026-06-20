@@ -397,3 +397,11 @@ def test_cli_search_text_and_event(tmp_path, capsys):
     import json
     hits = json.loads(capsys.readouterr().out)
     assert [h["idx"] for h in hits] == [1]
+
+
+def test_cli_transcript_format_srt(tmp_path, capsys):
+    from screex.cli import main
+    main(["transcript", "--from-index", str(_save_index(tmp_path)), "--format", "srt"])
+    out = capsys.readouterr().out
+    assert "00:00:00,000 --> 00:00:03,000" in out
+    assert "Open Settings" in out
