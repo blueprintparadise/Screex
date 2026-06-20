@@ -51,11 +51,11 @@ def test_mock_answerer_picks_overlapping_choice_deterministically():
     ans = eval_script.MockAnswerer()
     view = "Settings > API Keys\nError: invalid API key format"
     choices = ["A) 404 not found", "B) invalid API key format", "C) timed out"]
-    pick1 = ans.answer("what error?", choices, view)
-    pick2 = ans.answer("what error?", choices, view)
+    pick1 = ans.answer("what error?", choices, text=view)
+    pick2 = ans.answer("what error?", choices, text=view)
     assert pick1 == pick2 == 1           # deterministic, overlaps choice B
-    # No readable text view (the raw-frames arm) -> deterministic fallback to first choice.
-    assert ans.answer("what error?", choices, []) == 0
+    # No readable text (the raw-frames arm) -> deterministic fallback to first choice.
+    assert ans.answer("what error?", choices, images=["a.png"]) == 0
 
 
 def test_accuracy_harness_buckets_and_scores(screencast_video, tmp_path, monkeypatch):
@@ -105,6 +105,38 @@ def test_accuracy_harness_buckets_and_scores(screencast_video, tmp_path, monkeyp
         assert b["fr_tok"] == expected_frames * 1000
     assert result["answerer"] == "MockAnswerer"
     assert result["skipped"] == []
+
+
+def test_accuracy_hybrid_index_arm_counts_curated_images(tmp_path, monkeypatch):
+    eval_script = _load_eval_module()
+
+    index_path = tmp_path / "index.json"
+    ScreenIndex(
+        video="clip.avi", duration=2.0, sampled_fps=2.0,
+        states=[
+            ScreenState(0, 0.0, 1.0, "frames/0_thumb.png", "frames/0.png",
+                        ocr_text=["Open Settings"], salience=0.3),
+            ScreenState(1, 1.0, 2.0, "frames/1_thumb.png", "frames/1.png",
+                        ocr_text=["Save Changes"], salience=0.9),
+        ],
+    ).save(index_path)
+    monkeypatch.setattr("screex.cli.index", lambda *a, **k: index_path)
+    monkeypatch.setattr("screex.core.source.video_info", lambda path: {"duration": 2.0})
+
+    qa_path = tmp_path / "qa.jsonl"
+    qa_path.write_text(json.dumps({"clip": "clip.avi", "type": "state",
+                                   "question": "shown?", "choices": ["A) x", "B) Save Changes"],
+                                   "answer": "B"}) + "\n", encoding="utf-8")
+
+    view_text = eval_script._render_view(ScreenIndex.load(index_path), "compact", 2)
+
+    result = eval_script.score_accuracy(
+        str(qa_path), fps=2.0, frames=8, tokens_per_image=1000, view="compact",
+        answerer=eval_script.MockAnswerer(), clips_dir=str(tmp_path), keyframe_budget=2)
+
+    b = result["buckets"]["state"]
+    # Index-arm cost = compact text tokens + the 2 curated keyframe images.
+    assert b["idx_tok"] == len(view_text) // 4 + 2 * 1000
 
 
 def test_estimate_can_disable_audio_when_building(monkeypatch, tmp_path):
