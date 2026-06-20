@@ -37,6 +37,7 @@ dependencies = [
 test = ["pytest>=7"]
 capture = ["mss>=9"]
 audio = ["faster-whisper>=1.0"]
+eval = ["anthropic>=0.40"]
 dev = ["pytest>=7", "ruff>=0.5", "mss>=9", "mypy>=1.10,<2"]
 
 [project.scripts]
