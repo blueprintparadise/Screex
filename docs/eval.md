@@ -88,6 +88,22 @@ For a real comparison use `--answerer claude` (needs `pip install 'screex[eval]'
 images. `--view transcript` shows the markdown step transcript to the index arm instead of the
 compact JSON.
 
+### Curated hybrid index arm (A2)
+
+By default the index arm is text-only. Add `--keyframe-budget N` to make it a **hybrid**: the
+answerer sees the compact index text **plus** the `N` most salient, temporally-spread *curated*
+keyframes (see `--keyframe-budget` on `screex index`), and the index-arm token cost includes those
+`N` images. This is the comparison that tests the project's thesis — a curated *few* keyframes
+beating uniform-`N` frames at lower cost:
+
+```bash
+python scripts/eval.py --qa qa.jsonl --clips-dir ./clips --answerer claude \
+    --keyframe-budget 4 --frames 8
+```
+
+(The `mock` answerer can't read images, so it still answers from text only; the curated images are
+counted in the cost but a real accuracy comparison needs `--answerer claude`.)
+
 ## Results Log
 
 | date | clip | fps | states | escalated images | screex tokens | baseline tokens | cost ratio | accuracy notes |
