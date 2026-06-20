@@ -53,7 +53,7 @@ packages = ["screex", "screex.core"]
 include-package-data = true
 
 [tool.setuptools.package-data]
-screex = ["SKILL.md"]
+screex = ["SKILL.md", "py.typed"]
 
 [tool.ruff]
 line-length = 100
