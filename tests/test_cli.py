@@ -147,6 +147,22 @@ def test_index_builds_states_with_ocr(screencast_video, tmp_path):
     assert si.schema_version >= 1
 
 
+def test_index_keyframe_budget_scores_salience_and_curates(screencast_video, tmp_path):
+    from screex.cli import index
+    from screex.core.index import ScreenIndex
+
+    out = tmp_path / "work_curated"
+    index_path = index(str(screencast_video), fps=4.0, change_threshold=0.03,
+                       out=str(out), audio=False, keyframe_budget=2)
+    si = ScreenIndex.load(index_path)
+    assert len(si.states) >= 2
+    # salience was computed and persisted (a changed state should outscore a flat one).
+    assert any(s.salience > 0 for s in si.states)
+    curated = si.compact_dict(keyframe_budget=2)["curated_keyframes"]
+    assert 1 <= len(curated) <= 2
+    assert all((out / c["keyframe"]).exists() for c in curated)
+
+
 def test_index_merges_duplicate_text_states(dup_text_video, tmp_path):
     from screex.cli import index
     from screex.core.index import ScreenIndex
