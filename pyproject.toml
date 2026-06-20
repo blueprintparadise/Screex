@@ -70,6 +70,6 @@ warn_unused_configs = true
 check_untyped_defs = true
 
 [[tool.mypy.overrides]]
-module = ["cv2", "mss", "faster_whisper", "rapidocr_onnxruntime"]
+module = ["cv2", "mss", "faster_whisper", "rapidocr_onnxruntime", "mcp.*"]
 ignore_missing_imports = true
 follow_imports = "skip"
