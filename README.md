@@ -216,6 +216,17 @@ views: an **action transcript**, **Q&A** over the recording, or a **how-to / bug
 `pip install -U screex && screex skill --install`; `screex skill --check` tells you if your
 installed skill is behind the package.
 
+### Use as an MCP server
+
+Prefer the [Model Context Protocol](https://modelcontextprotocol.io)? Screex ships an optional
+stdio MCP server exposing `build_index`, `info`, `search`, and `transcript` as tools to any MCP
+client:
+
+```bash
+pip install 'screex[mcp]'
+screex mcp
+```
+
 ---
 
 ## How it works
