@@ -359,3 +359,41 @@ def test_index_persists_ocr_warnings(screencast_video, tmp_path, monkeypatch):
     monkeypatch.setattr(ocr, "extract_text", fail_text)
     p = index(str(screencast_video), fps=1.0, out=str(tmp_path / "warn"), quiet=True)
     assert "synthetic failure" in ScreenIndex.load(p).warnings[0]
+
+
+def _save_index(tmp_path):
+    from screex.core.index import ScreenIndex, ScreenState
+    si = ScreenIndex(
+        video="cast.mp4", duration=6.0, sampled_fps=2.0,
+        states=[
+            ScreenState(0, 0.0, 3.0, "t0.png", "k0.png", ocr_text=["Menu", "Open Settings"]),
+            ScreenState(1, 3.0, 6.0, "t1.png", "k1.png", ocr_text=["Menu", "Error: bad key"],
+                        event={"type": "error", "t": 3.0}),
+        ],
+    )
+    path = tmp_path / "index.json"
+    si.save(path)
+    return path
+
+
+def test_cli_info_json(tmp_path, capsys):
+    import json
+
+    from screex.cli import main
+    main(["info", str(_save_index(tmp_path)), "--json"])
+    out = json.loads(capsys.readouterr().out)
+    assert out["states"] == 2
+    assert out["events"] == {"error": 1}
+    assert out["persistent_ui_lines"] == 1
+
+
+def test_cli_search_text_and_event(tmp_path, capsys):
+    from screex.cli import main
+    main(["search", str(_save_index(tmp_path)), "error"])
+    out = capsys.readouterr().out
+    assert "state 1" in out and "Error: bad key" in out
+
+    main(["search", str(_save_index(tmp_path)), "--event", "error", "--json"])
+    import json
+    hits = json.loads(capsys.readouterr().out)
+    assert [h["idx"] for h in hits] == [1]

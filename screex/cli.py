@@ -499,6 +499,20 @@ def main(argv=None):
     tr.add_argument("--events", action="store_true",
                     help="classify and render typed action events in the transcript")
 
+    nf = sub.add_parser("info", help="summarize a built index.json")
+    nf.add_argument("index", help="path to an index.json")
+    nf.add_argument("--json", action="store_true", help="print the summary as JSON")
+
+    se = sub.add_parser("search", help="search states in a built index.json")
+    se.add_argument("index", help="path to an index.json")
+    se.add_argument("pattern", nargs="?", default=None,
+                    help="case-insensitive text to find in on-screen text")
+    se.add_argument("--since", type=float, default=None, help="only states at/after this time (s)")
+    se.add_argument("--until", type=float, default=None, help="only states at/before this time (s)")
+    se.add_argument("--event", default=None,
+                    help="only states with this typed event (navigate/type/click/...)")
+    se.add_argument("--json", action="store_true", help="print hits as JSON")
+
     args = p.parse_args(argv)
     quiet = getattr(args, "quiet", False)
     if args.cmd == "analyze":
@@ -563,6 +577,32 @@ def main(argv=None):
             print(f"transcript: {args.out}")
         else:
             print(md)
+    elif args.cmd == "info":
+        import json as _json
+
+        from screex.core.index import ScreenIndex
+        from screex.query import summarize_index
+        summary = summarize_index(ScreenIndex.load(args.index))
+        if args.json:
+            print(_json.dumps(summary, indent=2))
+        else:
+            for k, v in summary.items():
+                print(f"{k}: {v}")
+    elif args.cmd == "search":
+        import json as _json
+
+        from screex.core.index import ScreenIndex
+        from screex.query import search_index
+        hits = search_index(ScreenIndex.load(args.index), pattern=args.pattern,
+                            since=args.since, until=args.until, event_type=args.event)
+        if args.json:
+            print(_json.dumps(hits, indent=2))
+        else:
+            for h in hits:
+                tag = f" [{h['event']}]" if h["event"] else ""
+                extra = f"  {h['matches']}" if h["matches"] else ""
+                print(f"state {h['idx']}  {h['t_start']:.1f}-{h['t_end']:.1f}s{tag}{extra}")
+            print(f"# {len(hits)} state(s)", file=sys.stderr)
 
 
 if __name__ == "__main__":
