@@ -148,6 +148,21 @@ screex transcript path/to/recording.mp4 --from-index path/to/recording.screex/in
 By default `index`/`transcript` segment by **on-screen text change**, so a dialog or a status
 line appearing becomes its own step. Use `--fast` for motion-only segmentation on simple clips.
 
+Need a different output format? `screex transcript … --format {md,json,srt,vtt}` emits markdown
+(default), the compact JSON index, or SubRip/WebVTT caption cues (one cue per UI state).
+
+### Inspect & search an index
+
+Once you have an `index.json`, query it without writing any code:
+
+```bash
+screex info path/to/recording.screex/index.json          # states, duration, event histogram, warnings
+screex search path/to/recording.screex/index.json "error"  # states whose text matches
+screex search …/index.json --event click --since 5 --until 20   # by event type / time window
+```
+
+Both accept `--json` for machine-readable output.
+
 ### What `index.json` contains
 A `schema_version`, the source `video`/`duration`/`sampled_fps`, and an ordered list of
 `states`, each with:
