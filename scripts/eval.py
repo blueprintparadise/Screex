@@ -95,10 +95,11 @@ class MockAnswerer:
 
     needs_images = False
 
-    def answer(self, question: str, choices: list[str], view) -> int:
-        if not isinstance(view, str) or not view.strip():
+    def answer(self, question: str, choices: list[str],
+               text: str | None = None, images: list[str] | None = None) -> int:
+        if not text or not text.strip():
             return 0
-        view_tokens = _tokens(view)
+        view_tokens = _tokens(text)
         best_i, best_score = 0, -1
         for i, choice in enumerate(choices):
             score = len(_tokens(_strip_choice_label(choice)) & view_tokens)
@@ -126,20 +127,20 @@ class ClaudeAnswerer:
         return (f"{question}\n\n" + "\n".join(lines) +
                 "\n\nAnswer with only the single letter of the best choice.")
 
-    def answer(self, question: str, choices: list[str], view) -> int:
+    def answer(self, question: str, choices: list[str],
+               text: str | None = None, images: list[str] | None = None) -> int:
         import base64
 
         client = self._anthropic.Anthropic()
         content: list[dict] = []
-        if isinstance(view, str):
-            content.append({"type": "text", "text": f"Context:\n{view}"})
-        else:  # list of image paths
-            for path in view:
-                ext = Path(path).suffix.lstrip(".").lower()
-                media = "image/jpeg" if ext in ("jpg", "jpeg") else "image/png"
-                data = base64.b64encode(Path(path).read_bytes()).decode("ascii")
-                content.append({"type": "image", "source": {
-                    "type": "base64", "media_type": media, "data": data}})
+        if text:
+            content.append({"type": "text", "text": f"Context:\n{text}"})
+        for path in images or []:
+            ext = Path(path).suffix.lstrip(".").lower()
+            media = "image/jpeg" if ext in ("jpg", "jpeg") else "image/png"
+            data = base64.b64encode(Path(path).read_bytes()).decode("ascii")
+            content.append({"type": "image", "source": {
+                "type": "base64", "media_type": media, "data": data}})
         content.append({"type": "text", "text": self._letter_prompt(question, choices)})
         resp = client.messages.create(
             model=self.model, max_tokens=8,
@@ -170,11 +171,11 @@ def _load_qa(qa_path) -> list[dict]:
     return items
 
 
-def _render_view(si, view: str) -> str:
+def _render_view(si, view: str, keyframe_budget: int | None = None) -> str:
     if view == "transcript":
         from screex.transcript import format_transcript
         return format_transcript(si)
-    return json.dumps(si.compact_dict())
+    return json.dumps(si.compact_dict(keyframe_budget=keyframe_budget))
 
 
 def _is_correct(pick: int, choices: list[str], answer: str) -> bool:
@@ -211,8 +212,12 @@ def _materialize_frames(recording, n: int) -> list[str]:
 
 
 def score_accuracy(qa_path, fps, frames, tokens_per_image, view, answerer,
-                   clips_dir=None, audio=True):
+                   clips_dir=None, audio=True, keyframe_budget=None):
     """Score the index arm vs the uniform-N frames arm on a bucketed MCQ set.
+
+    With ``keyframe_budget`` set the index arm is **hybrid**: the answerer sees the compact index
+    text *plus* the N curated keyframe images (A2), and the index-arm token cost includes those
+    images — the comparison that tests "curated index beats uniform frames."
     Returns ``{"buckets": {type: {...}}, "skipped": [...], "answerer": str}``."""
     from screex.cli import index as build_index
     from screex.core import source
@@ -230,29 +235,37 @@ def score_accuracy(qa_path, fps, frames, tokens_per_image, view, answerer,
         if clip not in cache:
             clip_path = base / clip
             try:
-                ip = build_index(str(clip_path), fps=fps, quiet=True, audio=audio)
+                ip = build_index(str(clip_path), fps=fps, quiet=True, audio=audio,
+                                 keyframe_budget=keyframe_budget)
                 si = ScreenIndex.load(ip)
                 duration = source.video_info(str(clip_path))["duration"]
                 total = max(len(si.states), round(duration * fps))
-                cache[clip] = (si, _render_view(si, view), total)
+                cache[clip] = (si, _render_view(si, view, keyframe_budget), total,
+                               Path(ip).parent)
             except Exception as exc:  # missing/corrupt clip or unbuildable index
                 skipped.append({"clip": clip, "reason": str(exc)})
                 cache[clip] = None
         cached = cache[clip]
         if cached is None:
             continue
-        si, view_text, total = cached
+        si, view_text, total, index_dir = cached
         choices, answer = item["choices"], item["answer"]
 
-        idx_correct = _is_correct(answerer.answer(item["question"], choices, view_text),
-                                  choices, answer)
-        idx_tokens = len(view_text) // 4
+        # Index arm: compact text, optionally hybrid with N curated keyframe images (A2).
+        curated = si.curated_keyframes(keyframe_budget) if keyframe_budget else []
+        idx_images = ([str(index_dir / c["keyframe"]) for c in curated]
+                      if (curated and answerer.needs_images) else [])
+        idx_correct = _is_correct(
+            answerer.answer(item["question"], choices, text=view_text, images=idx_images),
+            choices, answer)
+        idx_tokens = len(view_text) // 4 + len(curated) * tokens_per_image
 
         n_frames = min(frames, total)
-        frame_view = (_materialize_frames(base / clip, n_frames)
+        frame_imgs = (_materialize_frames(base / clip, n_frames)
                       if answerer.needs_images else [])
-        fr_correct = _is_correct(answerer.answer(item["question"], choices, frame_view),
-                                 choices, answer)
+        fr_correct = _is_correct(
+            answerer.answer(item["question"], choices, images=frame_imgs),
+            choices, answer)
         fr_tokens = n_frames * tokens_per_image
 
         b = buckets.setdefault(qtype, {"n": 0, "idx_ok": 0, "fr_ok": 0,
@@ -312,13 +325,17 @@ def main(argv=None):
                    help="index view shown to the answerer (accuracy mode)")
     p.add_argument("--answerer", choices=["mock", "claude"], default="mock",
                    help="who answers the MCQs; mock is deterministic/offline (accuracy mode)")
+    p.add_argument("--keyframe-budget", type=int, default=None,
+                   help="hybrid index arm: also show the answerer the N curated keyframe images "
+                        "and count them in the index-arm token cost (accuracy mode, A2)")
     args = p.parse_args(argv)
 
     if args.qa:
         answerer = get_answerer(args.answerer)
         result = score_accuracy(
             args.qa, args.fps, args.frames, args.tokens_per_image, args.view, answerer,
-            clips_dir=args.clips_dir, audio=not args.no_audio)
+            clips_dir=args.clips_dir, audio=not args.no_audio,
+            keyframe_budget=args.keyframe_budget)
         if args.json:
             print(json.dumps(result, indent=2))
             return
