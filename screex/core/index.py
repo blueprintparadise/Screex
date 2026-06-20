@@ -19,6 +19,7 @@ class ScreenState:
     boxes: list[dict[str, Any]] = field(default_factory=list)
     interactions: list[dict[str, Any]] = field(default_factory=list)
     event: dict[str, Any] = field(default_factory=dict)
+    salience: float = 0.0
 
 
 @dataclass
@@ -52,8 +53,16 @@ class ScreenIndex:
             "warnings": self.warnings,
         }
 
+    def curated_keyframes(self, budget: int) -> list[dict[str, Any]]:
+        """Return up to ``budget`` of the most informative keyframes (by per-state ``salience``),
+        spread across the recording. Each entry is ``{idx, t_start, keyframe, salience}``. Salience
+        is populated when the index is built with ``--keyframe-budget`` (else all zero)."""
+        from screex.core import curate
+        return curate.select_curated(self.states, budget)
+
     def compact_dict(self, drop_diffs=True, factor_persistent=True,
-                     drop_boxes=True, drop_interactions=True) -> dict:
+                     drop_boxes=True, drop_interactions=True,
+                     keyframe_budget: int | None = None) -> dict:
         """A compact, LLM-oriented view of the index that cuts token cost without losing
         on-screen text. Two large redundancies dominate the verbose index: each state ships
         both its full OCR snapshot and the add/removed diffs (mutually derivable), and UI
@@ -69,6 +78,8 @@ class ScreenIndex:
         - ``drop_boxes``/``drop_interactions``: omit per-line OCR coordinates and cursor
           hotspots — auxiliary metadata not needed for text-level understanding (the text in
           ``boxes`` already appears in ``ocr_text``).
+        - ``keyframe_budget``: when set, add a top-level ``curated_keyframes`` list — the N most
+          informative keyframes (by per-state ``salience``) for an agent to escalate to.
 
         The default verbose ``to_dict`` is unchanged; this is an additive, opt-in view.
         """
@@ -89,6 +100,8 @@ class ScreenIndex:
                 d["persistent_ui"] = sorted(persistent)
                 for s in states:
                     s["ocr_text"] = [ln for ln in s.get("ocr_text", []) if ln not in persistent]
+        if keyframe_budget:
+            d["curated_keyframes"] = self.curated_keyframes(keyframe_budget)
         return d
 
     @classmethod
@@ -121,6 +134,7 @@ class ScreenIndex:
                 boxes=payload.get("boxes", []),
                 interactions=payload.get("interactions", []),
                 event=payload.get("event", {}),
+                salience=payload.get("salience", 0.0),
             )
 
         return cls(
