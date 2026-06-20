@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "screex"
-version = "0.6.0"
+version = "0.7.0"
 description = "Screen-recording understanding: turn a screencast into a queryable index of UI states for transcripts, Q&A, and how-to / bug-report generation."
 readme = "README.md"
 requires-python = ">=3.9"
@@ -38,6 +38,7 @@ test = ["pytest>=7"]
 capture = ["mss>=9"]
 audio = ["faster-whisper>=1.0"]
 eval = ["anthropic>=0.40"]
+mcp = ["mcp>=1.0"]
 dev = ["pytest>=7", "ruff>=0.5", "mss>=9", "mypy>=1.10,<2"]
 
 [project.scripts]
@@ -53,7 +54,7 @@ packages = ["screex", "screex.core"]
 include-package-data = true
 
 [tool.setuptools.package-data]
-screex = ["SKILL.md"]
+screex = ["SKILL.md", "py.typed"]
 
 [tool.ruff]
 line-length = 100
@@ -69,6 +70,6 @@ warn_unused_configs = true
 check_untyped_defs = true
 
 [[tool.mypy.overrides]]
-module = ["cv2", "mss", "faster_whisper", "rapidocr_onnxruntime"]
+module = ["cv2", "mss", "faster_whisper", "rapidocr_onnxruntime", "mcp.*"]
 ignore_missing_imports = true
 follow_imports = "skip"

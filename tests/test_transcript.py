@@ -48,3 +48,36 @@ def test_format_transcript_interleaves_narration():
     assert "🗣 said: first click save" in md
     assert "🗣 said: now we are home" in md
     assert md.index("first click save") < md.index("now we are home")
+
+
+def _two_state_index():
+    return ScreenIndex(video="cast.mp4", duration=6.0, sampled_fps=2.0, states=[
+        ScreenState(0, 0.0, 3.0, "t0.png", "k0.png", ocr_text=["Open Settings"]),
+        ScreenState(1, 3.0, 6.0, "t1.png", "k1.png", ocr_text=["Error: bad key"],
+                    event={"type": "error", "label": "bad key"}),
+    ])
+
+
+def test_format_srt():
+    from screex.transcript import format_srt
+    srt = format_srt(_two_state_index())
+    assert "1\n00:00:00,000 --> 00:00:03,000" in srt
+    assert "2\n00:00:03,000 --> 00:00:06,000" in srt
+    assert "Open Settings" in srt
+    assert "Error" in srt          # event caption rendered
+
+
+def test_format_webvtt():
+    from screex.transcript import format_webvtt
+    vtt = format_webvtt(_two_state_index())
+    assert vtt.startswith("WEBVTT")
+    assert "00:00:00.000 --> 00:00:03.000" in vtt
+
+
+def test_format_json_is_compact_view():
+    import json
+
+    from screex.transcript import format_json
+    d = json.loads(format_json(_two_state_index()))
+    assert d["states"][0]["ocr_text"] == ["Open Settings"]
+    assert "schema_version" in d

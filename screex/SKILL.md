@@ -54,6 +54,12 @@ states is cheap. If the recording was narrated and `screex[audio]` is installed,
 - `--redact`: masks secrets/PII (keys, emails, tokens, cards) in the text and **blurs those
   regions in the keyframes**. Use it whenever the recording may contain credentials before
   you read or share keyframes.
+- `--keyframe-budget N`: scores each state's `salience` (how much its text changed + how crisp
+  the keyframe is + whether it carries a typed event) so the index can surface the **N most
+  informative, temporally-spread keyframes**. Read them via
+  `ScreenIndex.compact_dict(keyframe_budget=N)["curated_keyframes"]`. When you need to escalate
+  to images but have a tight budget, read *these* keyframes rather than guessing which states
+  to open.
 
 ## Produce one of three views
 
@@ -67,6 +73,12 @@ states is cheap. If the recording was narrated and `screex[audio]` is installed,
   layout, colour).
 - **Doc / bug report:** format the transcript into a how-to guide, or a structured
   reproduction report (steps to reproduce, expected vs actual).
+
+## Inspect or query the index from the shell
+You don't have to read the whole JSON: `screex info <index.json>` prints a summary (state count,
+duration, event histogram, warnings), and `screex search <index.json> "<text>" [--event click]
+[--since 5] [--until 20]` returns the matching states. Both take `--json`. Use these to jump to the
+right states before escalating to keyframes.
 
 ## Cost discipline
 The `ocr_text` and `text_*` fields are text and nearly free to read. Escalate to a

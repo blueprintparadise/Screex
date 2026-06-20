@@ -498,6 +498,24 @@ def main(argv=None):
                     help="estimate cursor/interaction hotspots and show them in the transcript")
     tr.add_argument("--events", action="store_true",
                     help="classify and render typed action events in the transcript")
+    tr.add_argument("--format", choices=["md", "json", "srt", "vtt"], default="md",
+                    help="output format: md (default), json (compact index), srt, or vtt")
+
+    nf = sub.add_parser("info", help="summarize a built index.json")
+    nf.add_argument("index", help="path to an index.json")
+    nf.add_argument("--json", action="store_true", help="print the summary as JSON")
+
+    se = sub.add_parser("search", help="search states in a built index.json")
+    se.add_argument("index", help="path to an index.json")
+    se.add_argument("pattern", nargs="?", default=None,
+                    help="case-insensitive text to find in on-screen text")
+    se.add_argument("--since", type=float, default=None, help="only states at/after this time (s)")
+    se.add_argument("--until", type=float, default=None, help="only states at/before this time (s)")
+    se.add_argument("--event", default=None,
+                    help="only states with this typed event (navigate/type/click/...)")
+    se.add_argument("--json", action="store_true", help="print hits as JSON")
+
+    sub.add_parser("mcp", help="run the Screex MCP server over stdio (needs 'screex[mcp]')")
 
     args = p.parse_args(argv)
     quiet = getattr(args, "quiet", False)
@@ -545,7 +563,7 @@ def main(argv=None):
             print(f"installed skill: {target}")
     elif args.cmd == "transcript":
         from screex.core.index import ScreenIndex
-        from screex.transcript import format_transcript
+        from screex.transcript import FORMATTERS
         if args.from_index:
             si = ScreenIndex.load(args.from_index)
         else:
@@ -557,12 +575,44 @@ def main(argv=None):
                              redact=args.redact, interactions=args.interactions,
                              events=args.events)
             si = ScreenIndex.load(idx_path)
-        md = format_transcript(si)
+        rendered = FORMATTERS[args.format](si)
         if args.out:
-            Path(args.out).write_text(md, encoding="utf-8")
+            Path(args.out).write_text(rendered, encoding="utf-8")
             print(f"transcript: {args.out}")
         else:
-            print(md)
+            print(rendered)
+    elif args.cmd == "info":
+        import json as _json
+
+        from screex.core.index import ScreenIndex
+        from screex.query import summarize_index
+        summary = summarize_index(ScreenIndex.load(args.index))
+        if args.json:
+            print(_json.dumps(summary, indent=2))
+        else:
+            for k, v in summary.items():
+                print(f"{k}: {v}")
+    elif args.cmd == "search":
+        import json as _json
+
+        from screex.core.index import ScreenIndex
+        from screex.query import search_index
+        hits = search_index(ScreenIndex.load(args.index), pattern=args.pattern,
+                            since=args.since, until=args.until, event_type=args.event)
+        if args.json:
+            print(_json.dumps(hits, indent=2))
+        else:
+            for h in hits:
+                tag = f" [{h['event']}]" if h["event"] else ""
+                extra = f"  {h['matches']}" if h["matches"] else ""
+                print(f"state {h['idx']}  {h['t_start']:.1f}-{h['t_end']:.1f}s{tag}{extra}")
+            print(f"# {len(hits)} state(s)", file=sys.stderr)
+    elif args.cmd == "mcp":
+        from screex import mcp_server
+        try:
+            mcp_server.serve()
+        except RuntimeError as exc:
+            p.error(str(exc))
 
 
 if __name__ == "__main__":
