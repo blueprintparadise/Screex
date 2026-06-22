@@ -6,6 +6,17 @@ All notable changes to Screex are documented here. The format is based on
 
 ## [Unreleased]
 
+## [0.7.1]
+
+### Changed
+- README: document the measured input-token savings vs. sending raw video frames
+  (~70% fewer input tokens on GUI video QA, at comparable accuracy), with a chart.
+
+### Fixed
+- CI: cap `numpy<2.3` in the `dev` extra so the mypy type-check passes across the
+  3.9–3.11 matrix (numpy >=2.3 ships PEP 695 `type`-statement stubs that mypy cannot
+  parse unless it both runs on and targets Python >=3.12). Runtime numpy is unaffected.
+
 ## [0.7.0]
 
 ### Added
