@@ -39,7 +39,11 @@ capture = ["mss>=9"]
 audio = ["faster-whisper>=1.0"]
 eval = ["anthropic>=0.40"]
 mcp = ["mcp>=1.0"]
-dev = ["pytest>=7", "ruff>=0.5", "mss>=9", "mypy>=1.10,<2"]
+# numpy<2.3 only for the dev/CI env: numpy>=2.3 ships PEP 695 `type`-statement
+# stubs that mypy can't parse unless it both runs on and targets Python >=3.12,
+# which breaks the type-check job on the 3.9–3.11 matrix. End users are unaffected
+# (runtime numpy is uncapped above).
+dev = ["pytest>=7", "ruff>=0.5", "mss>=9", "mypy>=1.10,<2", "numpy<2.3"]
 
 [project.scripts]
 screex = "screex.cli:main"
