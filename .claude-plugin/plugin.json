@@ -1,0 +1,20 @@
+{
+  "name": "screex",
+  "description": "Turn a screen recording into a queryable index of UI states (on-screen text, what changed, typed actions) so Claude can produce a transcript, answer questions, or write a how-to / bug report.",
+  "version": "0.7.1",
+  "author": {
+    "name": "Rushikesh Hiray"
+  },
+  "homepage": "https://github.com/blueprintparadise/Screex",
+  "repository": "https://github.com/blueprintparadise/Screex",
+  "license": "MIT",
+  "keywords": [
+    "screen-recording",
+    "screencast",
+    "ocr",
+    "transcript",
+    "bug-report",
+    "agent",
+    "video-understanding"
+  ]
+}
