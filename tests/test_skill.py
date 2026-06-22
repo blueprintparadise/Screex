@@ -1,4 +1,22 @@
+from pathlib import Path
+
 from screex import skill
+
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+
+
+def test_packaged_and_distributed_skill_are_identical():
+    """The pip-packaged skill (screex/SKILL.md) and the directory-distribution
+    copy (skills/screex/SKILL.md, used by the Claude Skills Hub / plugin layout)
+    must stay byte-identical so the two never drift."""
+    packaged = _REPO_ROOT / "screex" / "SKILL.md"
+    distributed = _REPO_ROOT / "skills" / "screex" / "SKILL.md"
+    assert packaged.exists(), f"missing {packaged}"
+    assert distributed.exists(), f"missing {distributed}"
+    assert distributed.read_bytes() == packaged.read_bytes(), (
+        "skills/screex/SKILL.md has drifted from screex/SKILL.md — "
+        "copy the packaged file over it: cp screex/SKILL.md skills/screex/SKILL.md"
+    )
 
 
 def test_skill_text_is_bundled():
