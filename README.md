@@ -24,8 +24,15 @@ action transcript, answer questions, or generate a how-to guide / bug report fro
   libraries just to build indexes.
 - **Cheap by design** — the on-screen text is plain text (nearly free to read); full-res
   keyframes are escalated to only when the text is insufficient.
+- **~70% lower token cost** — in our GUI video-QA benchmarks, handing an agent the Screex
+  index instead of raw video frames cut the input tokens sent to the model by **around 70%**,
+  with little loss in answer accuracy.
 - **Fast OCR** — tuned onnxruntime threading makes text extraction ~3.85× faster than the default.
 - **Narration-aware** — with `pip install 'screex[audio]'`, the index includes a timestamped transcript of the spoken audio, interleaved into the step transcript.
+
+<p align="center">
+  <img src="docs/assets/token-savings.png" alt="Screex sends about 70% fewer input tokens than feeding raw video frames to the model" width="720">
+</p>
 
 **Good for:** bug repros → reproduction reports · demos & Loom videos → how-to docs ·
 tutorials → step lists · *"what did the user do / what URL did they open?"* Q&A over a recording.
