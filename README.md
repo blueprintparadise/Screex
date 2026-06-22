@@ -30,6 +30,12 @@ action transcript, answer questions, or generate a how-to guide / bug report fro
 **Good for:** bug repros → reproduction reports · demos & Loom videos → how-to docs ·
 tutorials → step lists · *"what did the user do / what URL did they open?"* Q&A over a recording.
 
+> **Best on screen recordings.** Screex is tuned for screencasts — mostly-static UI punctuated
+> by discrete changes (clicks, typing, navigation). On that input it segments into a handful of
+> meaningful states quickly. For **general / continuous-motion video** (camera footage, gameplay,
+> talking-head clips) the change detector fires on nearly every frame, so prefer `--fast` with a
+> higher `--change-threshold` (e.g. `--fast --change-threshold 0.10`) to avoid over-segmentation.
+
 ---
 
 ## Example
