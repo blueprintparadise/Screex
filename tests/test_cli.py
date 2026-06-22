@@ -418,3 +418,18 @@ def test_cli_mcp_without_extra_errors(capsys):
     with pytest.raises(SystemExit):
         main(["mcp"])
     assert "screex[mcp]" in capsys.readouterr().err
+
+
+def test_keyframes_command_exports(screencast_video, tmp_path):
+    from screex.cli import main
+    out = tmp_path / "kf"
+    main(["keyframes", str(screencast_video), "--k", "2", "--fps", "4", "--out", str(out)])
+    pngs = sorted(out.glob("kf_*.png"))
+    assert 1 <= len(pngs) <= 2
+
+
+def test_keyframes_command_som(screencast_video, tmp_path):
+    from screex.cli import main
+    out = tmp_path / "kfsom"
+    main(["keyframes", str(screencast_video), "--k", "2", "--fps", "4", "--som", "--out", str(out)])
+    assert sorted(out.glob("kf_*.png"))
