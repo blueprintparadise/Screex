@@ -365,6 +365,61 @@ def index(recording, fps=2.0, change_threshold=0.04, thumb_width=320, out=None,
     return index_path
 
 
+def select_and_export(recording=None, from_index=None, out_dir="keyframes", k=4,
+                      query=None, som=False, fps=2.0, quiet=False):
+    """Export K curated keyframes from a recording. Query-agnostic by salience
+    (``curate.select_curated``) by default; query-conditioned (CLIP relevance) when ``query`` is
+    given and the ``[keyframes]`` extra is installed. With ``som``, overlay numbered Set-of-Mark
+    boxes (from OCR) onto each. Writes kf_NN.png to ``out_dir``; returns the exported paths."""
+    import shutil
+
+    from screex.core import curate
+    from screex.core import som as som_mod
+    from screex.core.index import ScreenIndex
+
+    out = Path(out_dir)
+    out.mkdir(parents=True, exist_ok=True)
+    if from_index:
+        si = ScreenIndex.load(from_index)
+        base = Path(from_index).parent
+    else:
+        idx_path = index(recording, fps=fps, out=str(out / "_index"), quiet=quiet,
+                         audio=False, boxes=True, keyframe_budget=k)
+        si = ScreenIndex.load(idx_path)
+        base = Path(idx_path).parent
+    # Ensure salience exists for the agnostic path (a --from-index built without --keyframe-budget
+    # has all-zero salience; score it so selection is meaningful).
+    if not any(getattr(s, "salience", 0.0) for s in si.states):
+        curate.score_states(si.states, None)
+
+    embedder = None
+    if query:
+        try:
+            embedder = curate.ClipEmbedder()
+        except Exception:  # noqa: BLE001 - optional dep / model load; fall back to salience
+            _log(quiet, "keyframes: CLIP unavailable, using salience selection")
+            embedder = None
+
+    if query and embedder is not None:
+        picks = curate.select_curated_for_query(si.states, k, base, query, embedder)
+    else:
+        picks = curate.select_curated(si.states, k)
+
+    by_kf = {s.keyframe: s for s in si.states}
+    exported = []
+    for i, pick in enumerate(picks):
+        src = base / pick["keyframe"]
+        dest = out / f"kf_{i:02d}.png"
+        if som:
+            st = by_kf.get(pick["keyframe"])
+            som_mod.annotate(str(src), getattr(st, "boxes", []) or [], str(dest))
+        else:
+            shutil.copyfile(str(src), str(dest))
+        exported.append(str(dest))
+    _log(quiet, f"keyframes: exported {len(exported)} -> {out}")
+    return exported
+
+
 def main(argv=None):
     # Transcripts and progress can contain non-ASCII (emoji, OCR'd unicode); avoid
     # crashing on legacy consoles (e.g. Windows cp1252) when printing to stdout/stderr.
@@ -517,6 +572,22 @@ def main(argv=None):
 
     sub.add_parser("mcp", help="run the Screex MCP server over stdio (needs 'screex[mcp]')")
 
+    kf = sub.add_parser("keyframes",
+                        help="export K curated (optionally set-of-mark) keyframes from a recording")
+    kf.add_argument("recording", nargs="?",
+                    help="recording to index (omit if using --from-index)")
+    kf.add_argument("--from-index", default=None,
+                    help="reuse an existing index.json (build it with --boxes for --som)")
+    kf.add_argument("--k", type=lambda v: _positive_int("k", v), default=4,
+                    help="number of keyframes to export")
+    kf.add_argument("--query", default=None,
+                    help="question to select keyframes by CLIP relevance (needs the [keyframes] extra)")
+    kf.add_argument("--som", action="store_true",
+                    help="overlay numbered set-of-mark boxes from OCR onto the keyframes")
+    kf.add_argument("--fps", type=lambda v: _positive_float("fps", v), default=2.0,
+                    help="sampling fps when building the index")
+    kf.add_argument("--out", default="keyframes", help="output directory for exported keyframes")
+
     args = p.parse_args(argv)
     quiet = getattr(args, "quiet", False)
     if args.cmd == "analyze":
@@ -613,6 +684,14 @@ def main(argv=None):
             mcp_server.serve()
         except RuntimeError as exc:
             p.error(str(exc))
+    elif args.cmd == "keyframes":
+        if not args.recording and not args.from_index:
+            p.error("keyframes requires a recording unless --from-index is provided")
+        exported = select_and_export(
+            recording=args.recording, from_index=args.from_index, out_dir=args.out,
+            k=args.k, query=args.query, som=args.som, fps=args.fps, quiet=quiet)
+        for path in exported:
+            print(path)
 
 
 if __name__ == "__main__":
