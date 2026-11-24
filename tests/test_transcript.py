@@ -99,3 +99,23 @@ def test_subtitle_keeps_multiline_text_in_one_cue(formatter_name):
 
     assert "Error: Line one Line two — Open Settings\n\n" in output
     assert output.endswith("\nState 1\n")
+
+
+def test_webvtt_escapes_on_screen_text():
+    from screex.transcript import format_webvtt
+
+    si = _two_state_index()
+    si.states[0].ocr_text = ['a < b & c --> d "quoted"']
+
+    output = format_webvtt(si)
+
+    assert 'a &lt; b &amp; c --&gt; d "quoted"' in output
+    assert output.startswith("WEBVTT\n\n")
+
+
+def test_empty_webvtt_has_header_separator():
+    from screex.transcript import format_webvtt
+
+    si = ScreenIndex(video="cast.mp4", duration=0.0, sampled_fps=2.0)
+
+    assert format_webvtt(si) == "WEBVTT\n\n"

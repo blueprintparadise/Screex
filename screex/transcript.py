@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from html import escape
 
 
 def _fmt_time(seconds) -> str:
@@ -96,12 +97,11 @@ def format_srt(screen_index) -> str:
 
 def format_webvtt(screen_index) -> str:
     """Render states as WebVTT (.vtt) cues — one cue per UI state."""
-    out = ["WEBVTT", ""]
+    blocks = []
     for st in screen_index.states:
-        out.append(f"{_ts(st.t_start, '.')} --> {_ts(st.t_end, '.')}")
-        out.append(_state_caption(st))
-        out.append("")
-    return "\n".join(out).rstrip() + "\n"
+        caption = escape(_state_caption(st), quote=False)
+        blocks.append(f"{_ts(st.t_start, '.')} --> {_ts(st.t_end, '.')}\n{caption}\n")
+    return "WEBVTT\n\n" + "\n".join(blocks)
 
 
 FORMATTERS = {
