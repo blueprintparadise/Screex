@@ -48,12 +48,14 @@ that a small curated keyframe budget added to the text index clears uniform-8 at
 Start tiny to validate end-to-end before scaling:
 
 ```bash
-# smoke (a few items, both arms)
-python scripts/eval.py --qa qa.jsonl --clips-dir /data/guiworld/clips \
-    --answerer claude --limit-by-editing-qa-first --keyframe-budget 4 --json   # see note*
+# Smoke test with the same small set of questions in both arms.
+head -n 20 qa.jsonl > qa20.jsonl
+python scripts/eval.py --qa qa20.jsonl --clips-dir /data/guiworld/clips \
+    --answerer claude --frames 8 --keyframe-budget 4 --json
 ```
-\* there is no `--limit` on the eval itself; size the run by trimming `qa.jsonl` (e.g.
-`head -n 20 qa.jsonl > qa20.jsonl`).
+
+Use `--answerer mock` to check the harness offline before running the same command with Claude.
+The mock estimates image tokens but answers using text only.
 
 Frames-arm sweep:
 ```bash
