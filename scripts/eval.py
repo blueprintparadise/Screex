@@ -181,10 +181,14 @@ def _is_correct(pick: int, choices: list[str], answer: str) -> bool:
     if not 0 <= pick < len(choices):
         return False
     answer = str(answer).strip()
-    if len(answer) == 1 and answer.isalpha():
-        return chr(65 + pick).upper() == answer.upper()
-    chosen = _strip_choice_label(choices[pick]).strip()
-    return chosen == answer or answer in choices[pick]
+    if not answer:
+        return False
+    if re.fullmatch(r"[A-Za-z]", answer):
+        position = ord(answer.upper()) - ord("A")
+        if position < len(choices):
+            return pick == position
+    choice = choices[pick].strip()
+    return answer in (choice, _strip_choice_label(choice).strip())
 
 
 def _materialize_frames(recording, n: int) -> list[str]:

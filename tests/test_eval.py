@@ -2,6 +2,8 @@ import importlib.util
 import json
 from pathlib import Path
 
+import pytest
+
 from screex.core.index import ScreenIndex, ScreenState
 
 
@@ -44,6 +46,23 @@ def test_estimate_reuses_existing_index(screencast_video, tmp_path, monkeypatch)
     assert result["states"] == 2
     assert result["escalated_images"] == 1
     assert result["screex_tokens"] > 1000
+
+
+@pytest.mark.parametrize(("pick", "answer", "expected"), [
+    (0, "Save", True),
+    (1, "Save", False),
+    (1, " B) Save as ", True),
+    (1, " b ", True),
+    (0, "b", False),
+    (0, "", False),
+    (1, "B)", False),
+    (-1, "Save", False),
+])
+def test_accuracy_requires_a_matching_choice(pick, answer, expected):
+    eval_script = _load_eval_module()
+    choices = ["A) Save", "B) Save as"]
+
+    assert eval_script._is_correct(pick, choices, answer) is expected
 
 
 def test_mock_answerer_picks_overlapping_choice_deterministically():
