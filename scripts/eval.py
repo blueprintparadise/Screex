@@ -145,8 +145,11 @@ class ClaudeAnswerer:
             model=self.model, max_tokens=8,
             messages=[{"role": "user", "content": content}])
         text = "".join(b.text for b in resp.content if getattr(b, "type", "") == "text")
-        m = re.search(r"[A-Za-z]", text)
-        return (ord(m.group().upper()) - 65) if m else 0
+        match = re.fullmatch(r"([A-Za-z])[.)]?", text.strip())
+        if match is None:
+            return -1
+        pick = ord(match.group(1).upper()) - ord("A")
+        return pick if pick < len(choices) else -1
 
 
 def get_answerer(name: str):

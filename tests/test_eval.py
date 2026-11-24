@@ -1,6 +1,8 @@
 import importlib.util
 import json
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import Mock
 
 import pytest
 
@@ -63,6 +65,21 @@ def test_accuracy_requires_a_matching_choice(pick, answer, expected):
     choices = ["A) Save", "B) Save as"]
 
     assert eval_script._is_correct(pick, choices, answer) is expected
+
+
+@pytest.mark.parametrize(("text", "expected"), [
+    (" B. ", 1), ("a", 0), ("", -1), ("Answer: B", -1), ("Z", -1),
+])
+def test_claude_answerer_requires_a_valid_reply(text, expected):
+    eval_script = _load_eval_module()
+    messages = Mock()
+    messages.create.return_value = SimpleNamespace(
+        content=[SimpleNamespace(type="text", text=text)],
+    )
+    answerer = eval_script.ClaudeAnswerer.__new__(eval_script.ClaudeAnswerer)
+    answerer._anthropic = SimpleNamespace(Anthropic=lambda: SimpleNamespace(messages=messages))
+
+    assert answerer.answer("What appeared?", ["Save", "Search"], "Screen text") == expected
 
 
 def test_mock_answerer_picks_overlapping_choice_deterministically():
