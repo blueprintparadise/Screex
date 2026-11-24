@@ -1,3 +1,5 @@
+from unittest.mock import Mock
+
 import pytest
 
 from screex.core import source
@@ -56,3 +58,24 @@ def test_iter_frames_handles_zero_sample_fps(moving_square_video):
     assert len(frames) >= 1
     # timestamps are finite numbers
     assert all(isinstance(f[1], float) for f in frames)
+
+
+def test_capture_webcam_reports_writer_open_failure(tmp_path, monkeypatch):
+    import cv2
+    import numpy as np
+
+    camera = Mock()
+    camera.isOpened.return_value = True
+    camera.get.return_value = 64
+    camera.read.return_value = (True, np.zeros((64, 64, 3), dtype=np.uint8))
+    writer = Mock()
+    writer.isOpened.return_value = False
+    monkeypatch.setattr(cv2, "VideoCapture", lambda device: camera)
+    monkeypatch.setattr(cv2, "VideoWriter", lambda *args: writer)
+
+    with pytest.raises(RuntimeError, match="cannot open capture output"):
+        source.capture_webcam(str(tmp_path / "missing" / "capture.mp4"), seconds=1)
+
+    writer.write.assert_not_called()
+    writer.release.assert_called_once()
+    camera.release.assert_called_once()

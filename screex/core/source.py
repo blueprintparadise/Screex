@@ -75,6 +75,17 @@ def iter_frames(path: str, sample_fps: float, max_frames: int | None = None,
         cap.release()
 
 
+def _open_capture_writer(out_path, fps, size):
+    import cv2
+
+    fourcc = cv2.VideoWriter_fourcc(*"mp4v")  # type: ignore[attr-defined]
+    writer = cv2.VideoWriter(str(out_path), fourcc, fps, size)
+    if not writer.isOpened():
+        writer.release()
+        raise RuntimeError(f"cannot open capture output: {out_path}")
+    return writer
+
+
 def capture_screen(out_path: str, seconds: float, fps: float = 10.0, monitor: int = 1) -> str:
     """Record the screen into out_path. Requires the optional `mss` dependency
     (`pip install mss`). Captures the given monitor (1 = primary)."""
@@ -93,8 +104,7 @@ def capture_screen(out_path: str, seconds: float, fps: float = 10.0, monitor: in
     with mss.mss() as sct:
         mon = sct.monitors[monitor]
         w, h = mon["width"], mon["height"]
-        fourcc = cv2.VideoWriter_fourcc(*"mp4v")  # type: ignore[attr-defined]
-        writer = cv2.VideoWriter(str(out_path), fourcc, fps, (w, h))
+        writer = _open_capture_writer(out_path, fps, (w, h))
         try:
             n = int(seconds * fps)
             period = 1.0 / fps if fps else 0.0
@@ -115,13 +125,13 @@ def capture_webcam(out_path: str, seconds: float, fps: float = 15.0, device: int
     import cv2
 
     cap = cv2.VideoCapture(device)
-    if not cap.isOpened():
-        raise RuntimeError("cannot open webcam")
-    w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)) or 640
-    h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)) or 480
-    fourcc = cv2.VideoWriter_fourcc(*"mp4v")  # type: ignore[attr-defined]
-    writer = cv2.VideoWriter(str(out_path), fourcc, fps, (w, h))
+    writer = None
     try:
+        if not cap.isOpened():
+            raise RuntimeError("cannot open webcam")
+        w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)) or 640
+        h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)) or 480
+        writer = _open_capture_writer(out_path, fps, (w, h))
         for _ in range(int(seconds * fps)):
             ok, frame = cap.read()
             if not ok:
@@ -129,5 +139,6 @@ def capture_webcam(out_path: str, seconds: float, fps: float = 15.0, device: int
             writer.write(frame)
     finally:
         cap.release()
-        writer.release()
+        if writer is not None:
+            writer.release()
     return str(out_path)
