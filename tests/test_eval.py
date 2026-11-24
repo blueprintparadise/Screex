@@ -1,5 +1,6 @@
 import importlib.util
 import json
+import sys
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock
@@ -80,6 +81,24 @@ def test_claude_answerer_requires_a_valid_reply(text, expected):
     answerer._anthropic = SimpleNamespace(Anthropic=lambda: SimpleNamespace(messages=messages))
 
     assert answerer.answer("What appeared?", ["Save", "Search"], "Screen text") == expected
+
+
+@pytest.mark.parametrize(("sdk", "message"), [
+    (None, "pip install 'screex[eval]'"),
+    (SimpleNamespace(), "ANTHROPIC_API_KEY is not set"),
+])
+def test_eval_cli_reports_missing_claude_setup(sdk, message, monkeypatch, capsys):
+    eval_script = _load_eval_module()
+    monkeypatch.setitem(sys.modules, "anthropic", sdk)
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+
+    with pytest.raises(SystemExit) as exc:
+        eval_script.main(["--qa", "qa.jsonl", "--answerer", "claude", "--json"])
+
+    output = capsys.readouterr()
+    assert exc.value.code == 2
+    assert message in output.err
+    assert output.out == ""
 
 
 def test_mock_answerer_picks_overlapping_choice_deterministically():

@@ -115,7 +115,10 @@ class ClaudeAnswerer:
     model = "claude-opus-4-8"
 
     def __init__(self):
-        import anthropic  # noqa: F401  (presence check; raises ImportError if missing)
+        try:
+            import anthropic
+        except ImportError as exc:
+            raise RuntimeError("install the eval extra with pip install 'screex[eval]'") from exc
 
         if not os.environ.get("ANTHROPIC_API_KEY"):
             raise RuntimeError("ANTHROPIC_API_KEY is not set")
@@ -153,15 +156,8 @@ class ClaudeAnswerer:
 
 
 def get_answerer(name: str):
-    """Return an answerer instance. Falls back to the mock (with a notice) if ``claude`` is
-    requested but unavailable, so the harness never hard-fails on a missing optional dep."""
-    if name == "claude":
-        try:
-            return ClaudeAnswerer()
-        except Exception as exc:  # ImportError or missing key
-            print(f"note: claude answerer unavailable ({exc}); falling back to mock",
-                  file=sys.stderr)
-    return MockAnswerer()
+    """Return the answerer selected for the run."""
+    return ClaudeAnswerer() if name == "claude" else MockAnswerer()
 
 
 def _load_qa(qa_path) -> list[dict]:
@@ -322,7 +318,10 @@ def main(argv=None):
     args = p.parse_args(argv)
 
     if args.qa:
-        answerer = get_answerer(args.answerer)
+        try:
+            answerer = get_answerer(args.answerer)
+        except RuntimeError as exc:
+            p.error(f"Claude answerer unavailable: {exc}")
         result = score_accuracy(
             args.qa, args.fps, args.frames, args.tokens_per_image, args.view, answerer,
             clips_dir=args.clips_dir, audio=not args.no_audio)
