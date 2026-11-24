@@ -329,6 +329,11 @@ def main(argv=None):
                    help="hybrid index arm: also show the answerer the N curated keyframe images "
                         "and count them in the index-arm token cost (accuracy mode, A2)")
     args = p.parse_args(argv)
+    if args.keyframe_budget is not None:
+        if not args.qa:
+            p.error("--keyframe-budget requires --qa")
+        if args.keyframe_budget <= 0:
+            p.error("--keyframe-budget must be greater than 0")
 
     if args.qa:
         answerer = get_answerer(args.answerer)

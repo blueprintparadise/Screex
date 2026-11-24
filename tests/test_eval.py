@@ -2,6 +2,8 @@ import importlib.util
 import json
 from pathlib import Path
 
+import pytest
+
 from screex.core.index import ScreenIndex, ScreenState
 
 
@@ -194,3 +196,18 @@ def test_hybrid_accuracy_uses_curated_keyframe_and_charges_its_tokens(tmp_path, 
         "n": 1, "idx_ok": 1, "fr_ok": 0,
         "idx_tok": len(index_text) // 4 + 1000, "fr_tok": 1000,
     }
+
+
+@pytest.mark.parametrize(("args", "message"), [
+    (["clip.mp4", "--keyframe-budget", "1"], "--keyframe-budget requires --qa"),
+    (["--qa", "qa.jsonl", "--keyframe-budget", "0"], "--keyframe-budget must be greater than 0"),
+    (["--qa", "qa.jsonl", "--keyframe-budget", "-1"], "--keyframe-budget must be greater than 0"),
+])
+def test_eval_cli_rejects_invalid_keyframe_budget(args, message, capsys):
+    eval_script = _load_eval_module()
+
+    with pytest.raises(SystemExit) as exc:
+        eval_script.main(args)
+
+    assert exc.value.code == 2
+    assert message in capsys.readouterr().err
