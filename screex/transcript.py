@@ -9,14 +9,18 @@ def _fmt_time(seconds) -> str:
     return f"{s // 60}:{s % 60:02d}"
 
 
-def _ts(seconds: float, sep: str) -> str:
-    """Format seconds as HH:MM:SS<sep>mmm for SRT (sep=',') or WebVTT (sep='.')."""
-    seconds = max(0.0, float(seconds))
-    ms = int(round(seconds * 1000))
+def _ts(ms: int, sep: str) -> str:
+    """Format milliseconds as HH:MM:SS<sep>mmm for SRT or WebVTT."""
     h, ms = divmod(ms, 3_600_000)
     m, ms = divmod(ms, 60_000)
     s, ms = divmod(ms, 1000)
     return f"{h:02d}:{m:02d}:{s:02d}{sep}{ms:03d}"
+
+
+def _cue_timing(t_start: float, t_end: float, sep: str) -> str:
+    start = round(max(0.0, float(t_start)) * 1000)
+    end = max(start + 1, round(max(0.0, float(t_end)) * 1000))
+    return f"{_ts(start, sep)} --> {_ts(end, sep)}"
 
 
 def _narration_for(narration, t_start, t_end) -> str:
@@ -90,8 +94,8 @@ def format_srt(screen_index) -> str:
     """Render states as SubRip (.srt) cues — one cue per UI state, timed to [t_start, t_end]."""
     blocks = []
     for n, st in enumerate(screen_index.states, start=1):
-        blocks.append(f"{n}\n{_ts(st.t_start, ',')} --> {_ts(st.t_end, ',')}\n"
-                      f"{_state_caption(st)}")
+        timing = _cue_timing(st.t_start, st.t_end, ",")
+        blocks.append(f"{n}\n{timing}\n{_state_caption(st)}")
     return "\n\n".join(blocks) + ("\n" if blocks else "")
 
 
@@ -100,7 +104,8 @@ def format_webvtt(screen_index) -> str:
     blocks = []
     for st in screen_index.states:
         caption = escape(_state_caption(st), quote=False)
-        blocks.append(f"{_ts(st.t_start, '.')} --> {_ts(st.t_end, '.')}\n{caption}\n")
+        timing = _cue_timing(st.t_start, st.t_end, ".")
+        blocks.append(f"{timing}\n{caption}\n")
     return "WEBVTT\n\n" + "\n".join(blocks)
 
 

@@ -119,3 +119,18 @@ def test_empty_webvtt_has_header_separator():
     si = ScreenIndex(video="cast.mp4", duration=0.0, sampled_fps=2.0)
 
     assert format_webvtt(si) == "WEBVTT\n\n"
+
+
+@pytest.mark.parametrize(("formatter_name", "sep"), [("format_srt", ","), ("format_webvtt", ".")])
+def test_subtitle_keeps_a_positive_duration_after_rounding(formatter_name, sep):
+    from screex import transcript
+
+    si = _two_state_index()
+    si.states[0].t_start = 0.0
+    si.states[0].t_end = 0.0001
+    si.states[1].t_start = si.states[1].t_end = 59.999
+
+    output = getattr(transcript, formatter_name)(si)
+
+    assert f"00:00:00{sep}000 --> 00:00:00{sep}001" in output
+    assert f"00:00:59{sep}999 --> 00:01:00{sep}000" in output
