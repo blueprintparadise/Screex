@@ -75,7 +75,9 @@ def _state_caption(st) -> str:
     """A one-line caption for a state, used by the SRT/WebVTT cues."""
     ev = _format_event(getattr(st, "event", None) or {})
     body = " · ".join(st.ocr_text) if st.ocr_text else ""
-    return " — ".join(p for p in (ev, body) if p) or f"State {st.idx}"
+    caption = " — ".join(p for p in (ev, body) if p)
+    line = " ".join(part.strip() for part in caption.splitlines() if part.strip())
+    return line or f"State {st.idx}"
 
 
 def format_json(screen_index) -> str:
