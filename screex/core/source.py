@@ -75,6 +75,17 @@ def iter_frames(path: str, sample_fps: float, max_frames: int | None = None,
         cap.release()
 
 
+def _capture_frame_count(seconds: float, fps: float) -> int:
+    from math import isfinite
+
+    if not isfinite(seconds) or seconds <= 0 or not isfinite(fps) or fps <= 0:
+        raise ValueError("capture duration and fps must be finite and greater than 0")
+    frame_count = seconds * fps
+    if not isfinite(frame_count) or frame_count < 1:
+        raise ValueError("capture duration and fps must produce a finite count of at least one frame")
+    return int(frame_count)
+
+
 def _open_capture_writer(out_path, fps, size):
     import cv2
 
@@ -89,6 +100,7 @@ def _open_capture_writer(out_path, fps, size):
 def capture_screen(out_path: str, seconds: float, fps: float = 10.0, monitor: int = 1) -> str:
     """Record the screen into out_path. Requires the optional `mss` dependency
     (`pip install mss`). Captures the given monitor (1 = primary)."""
+    n = _capture_frame_count(seconds, fps)
     import time
 
     import cv2
@@ -106,8 +118,7 @@ def capture_screen(out_path: str, seconds: float, fps: float = 10.0, monitor: in
         w, h = mon["width"], mon["height"]
         writer = _open_capture_writer(out_path, fps, (w, h))
         try:
-            n = int(seconds * fps)
-            period = 1.0 / fps if fps else 0.0
+            period = 1.0 / fps
             for _ in range(n):
                 start = time.time()
                 shot = np.asarray(sct.grab(mon))  # BGRA
@@ -121,7 +132,8 @@ def capture_screen(out_path: str, seconds: float, fps: float = 10.0, monitor: in
 
 
 def capture_webcam(out_path: str, seconds: float, fps: float = 15.0, device: int = 0) -> str:
-    """Record a short clip from the default webcam into out_path. Manual/hardware path."""
+    """Record a short clip from a webcam into out_path. Manual/hardware path."""
+    n = _capture_frame_count(seconds, fps)
     import cv2
 
     cap = cv2.VideoCapture(device)
@@ -129,14 +141,16 @@ def capture_webcam(out_path: str, seconds: float, fps: float = 15.0, device: int
     try:
         if not cap.isOpened():
             raise RuntimeError("cannot open webcam")
-        w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)) or 640
-        h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)) or 480
-        writer = _open_capture_writer(out_path, fps, (w, h))
-        for _ in range(int(seconds * fps)):
+        for _ in range(n):
             ok, frame = cap.read()
-            if not ok:
+            if not ok or frame is None:
                 break
+            if writer is None:
+                h, w = frame.shape[:2]
+                writer = _open_capture_writer(out_path, fps, (w, h))
             writer.write(frame)
+        if writer is None:
+            raise RuntimeError("webcam did not return any frames")
     finally:
         cap.release()
         if writer is not None:
