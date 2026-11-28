@@ -48,14 +48,15 @@ def iter_frames(path: str, sample_fps: float, max_frames: int | None = None,
     import cv2
 
     native = cap.get(cv2.CAP_PROP_FPS) or sample_fps or 1.0
-    step = max(1, round(native / sample_fps)) if sample_fps else 1
+    stride = max(1.0, native / sample_fps) if sample_fps else 1.0
+    next_sample = 0
     raw_idx = 0
     out_idx = 0
     try:
         while True:
             if not cap.grab():
                 break
-            if raw_idx % step == 0:
+            if raw_idx == next_sample:
                 ok, frame = cap.retrieve()
                 if not ok:
                     if diagnostics is not None:
@@ -68,6 +69,7 @@ def iter_frames(path: str, sample_fps: float, max_frames: int | None = None,
                 t = pos_msec / 1000.0 if pos_msec and pos_msec > 0 else raw_idx / native
                 yield out_idx, t, frame
                 out_idx += 1
+                next_sample = round(out_idx * stride)
                 if max_frames is not None and out_idx >= max_frames:
                     break
             raw_idx += 1
