@@ -537,12 +537,15 @@ def main(argv=None):
                      events=args.events, keyframe_budget=args.keyframe_budget)
         print(f"index: {path}")
     elif args.cmd == "capture":
-        if args.screen:
-            fps = args.fps if args.fps is not None else 10.0
-            out = source.capture_screen(args.out, args.seconds, fps=fps, monitor=args.monitor)
-        else:
-            fps = args.fps if args.fps is not None else 15.0
-            out = source.capture_webcam(args.out, args.seconds, fps=fps, device=args.device)
+        try:
+            if args.screen:
+                fps = args.fps if args.fps is not None else 10.0
+                out = source.capture_screen(args.out, args.seconds, fps=fps, monitor=args.monitor)
+            else:
+                fps = args.fps if args.fps is not None else 15.0
+                out = source.capture_webcam(args.out, args.seconds, fps=fps, device=args.device)
+        except (RuntimeError, ValueError) as exc:
+            p.error(str(exc))
         print(f"captured: {out}")
     elif args.cmd == "skill":
         from screex import skill as skill_mod

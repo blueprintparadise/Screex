@@ -7,8 +7,6 @@ from unittest.mock import Mock
 
 import pytest
 
-import pytest
-
 from screex.core.index import ScreenIndex, ScreenState
 
 

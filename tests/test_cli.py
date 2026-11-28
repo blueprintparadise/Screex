@@ -42,6 +42,25 @@ def test_capture_screen_passes_controls(monkeypatch, capsys):
     assert "captured: screen.mp4" in capsys.readouterr().out
 
 
+def test_capture_reports_failure(monkeypatch, capsys):
+    import pytest
+
+    from screex.cli import main
+    from screex.core import source
+
+    def fail_capture(*args, **kwargs):
+        raise RuntimeError("cannot open capture output: capture.mp4")
+
+    monkeypatch.setattr(source, "capture_webcam", fail_capture)
+    with pytest.raises(SystemExit) as exc:
+        main(["capture", "--webcam"])
+
+    captured = capsys.readouterr()
+    assert exc.value.code == 2
+    assert "cannot open capture output: capture.mp4" in captured.err
+    assert captured.out == ""
+
+
 def test_capture_webcam_passes_controls_by_default(monkeypatch):
     from screex.cli import main
     from screex.core import source
