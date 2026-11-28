@@ -135,6 +135,7 @@ def capture_webcam(out_path: str, seconds: float, fps: float = 15.0, device: int
     """Record a short clip from a webcam into out_path. Manual/hardware path."""
     n = _capture_frame_count(seconds, fps)
     import cv2
+    import numpy as np
 
     cap = cv2.VideoCapture(device)
     writer = None
@@ -146,7 +147,7 @@ def capture_webcam(out_path: str, seconds: float, fps: float = 15.0, device: int
             if not ok or frame is None:
                 break
             if writer is None:
-                h, w = frame.shape[:2]
+                h, w = np.asarray(frame).shape[:2]
                 writer = _open_capture_writer(out_path, fps, (w, h))
             writer.write(frame)
         if writer is None:
