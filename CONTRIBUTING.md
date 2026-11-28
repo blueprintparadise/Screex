@@ -33,6 +33,9 @@ python -m mypy screex          # type check
 python -m pytest -q            # tests
 ```
 
+The Python 3.9 job uses Ubuntu 24.04 because GitHub's setup action provides a compatible
+Python build for that image. The other jobs use `ubuntu-latest`.
+
 Please run all three locally before opening a PR. The tests use small synthetic video fixtures
 (see `tests/conftest.py`) and need no external media.
 
