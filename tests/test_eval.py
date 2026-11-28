@@ -222,7 +222,11 @@ def test_hybrid_accuracy_uses_curated_keyframe_and_charges_its_tokens(tmp_path, 
 
     monkeypatch.setattr("screex.cli.index", build_index)
     monkeypatch.setattr("screex.core.source.video_info", lambda path: {"duration": 2.0})
-    monkeypatch.setattr(eval_script, "_materialize_frames", lambda path, n: nullcontext([str(uniform)]))
+    def materialize_short_clip(path, n):
+        assert n == 2
+        return nullcontext([str(uniform)])
+
+    monkeypatch.setattr(eval_script, "_materialize_frames", materialize_short_clip)
 
     class ImageAnswerer:
         needs_images = True
@@ -236,7 +240,7 @@ def test_hybrid_accuracy_uses_curated_keyframe_and_charges_its_tokens(tmp_path, 
 
     answerer = ImageAnswerer()
     result = eval_script.score_accuracy(
-        qa_path, fps=2.0, frames=1, tokens_per_image=1000, view="compact",
+        qa_path, fps=2.0, frames=2, tokens_per_image=1000, view="compact",
         answerer=answerer, keyframe_budget=1,
     )
 

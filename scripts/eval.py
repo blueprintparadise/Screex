@@ -276,7 +276,8 @@ def score_accuracy(qa_path, fps, frames, tokens_per_image, view, answerer,
             fr_correct = _is_correct(
                 answerer.answer(item["question"], choices, images=frame_imgs),
                 choices, answer)
-        fr_tokens = n_frames * tokens_per_image
+        billed_frames = len(frame_imgs) if answerer.needs_images else n_frames
+        fr_tokens = billed_frames * tokens_per_image
 
         b = buckets.setdefault(qtype, {"n": 0, "idx_ok": 0, "fr_ok": 0,
                                        "idx_tok": 0, "fr_tok": 0})
