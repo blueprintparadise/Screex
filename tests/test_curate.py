@@ -55,3 +55,41 @@ def test_select_curated_budget_bounds():
 
 def test_select_curated_empty():
     assert curate.select_curated([], 3) == []
+
+
+class _StubEmbedder:
+    """Deterministic image+text embedder for query-conditioned curation tests."""
+
+    def __init__(self, text_vec, image_vecs):
+        self._t, self._i = text_vec, image_vecs
+
+    def embed_text(self, text):
+        return self._t
+
+    def embed_image(self, path):
+        from pathlib import Path
+        return self._i[Path(path).name]
+
+
+def test_select_curated_for_query_relevance_and_diversity():
+    states = _states(4)  # keyframes "0.png".."3.png"
+    images = {"0.png": [1.0, 0.0], "1.png": [1.0, 0.0],
+              "2.png": [0.0, 1.0], "3.png": [0.2, 0.2]}
+    emb = _StubEmbedder([1.0, 0.0], images)
+    picks = curate.select_curated_for_query(states, 2, "/base", "q", emb, diversity=0.9)
+    idxs = {p["idx"] for p in picks}
+    # picks the relevant frame 0, then the diverse frame 2 — NOT the near-duplicate 1
+    assert 0 in idxs and 2 in idxs and 1 not in idxs
+
+
+def test_select_curated_for_query_budget_ge_n_returns_all():
+    states = _states(2)
+    picks = curate.select_curated_for_query(states, 5, "/base", "q", embedder=None)
+    assert len(picks) == 2
+
+
+def test_clip_embedder_available_or_skipped():
+    import pytest
+    pytest.importorskip("sentence_transformers")
+    emb = curate.ClipEmbedder()
+    assert len(emb.embed_text("a settings dialog")) > 0
