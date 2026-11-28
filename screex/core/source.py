@@ -53,7 +53,6 @@ def iter_frames(path: str, sample_fps: float, max_frames: int | None = None,
     out_idx = 0
     try:
         while True:
-            pos_msec = cap.get(cv2.CAP_PROP_POS_MSEC)
             if not cap.grab():
                 break
             if raw_idx % step == 0:
@@ -65,6 +64,7 @@ def iter_frames(path: str, sample_fps: float, max_frames: int | None = None,
                             f"(truncated or corrupt video?)"
                         )
                     break
+                pos_msec = cap.get(cv2.CAP_PROP_POS_MSEC)
                 t = pos_msec / 1000.0 if pos_msec and pos_msec > 0 else raw_idx / native
                 yield out_idx, t, frame
                 out_idx += 1

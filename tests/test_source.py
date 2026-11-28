@@ -102,3 +102,8 @@ def test_capture_webcam_reports_no_frames(tmp_path, monkeypatch):
 
     writer_factory.assert_not_called()
     camera.release.assert_called_once()
+
+
+def test_sampled_timestamps_match_the_selected_video_frames(moving_square_video):
+    frames = source.iter_frames(str(moving_square_video), sample_fps=5)
+    assert [t for _, t, _ in frames] == pytest.approx([i / 5 for i in range(10)])
