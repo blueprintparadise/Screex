@@ -115,7 +115,10 @@ class ClaudeAnswerer:
     model = "claude-opus-4-8"
 
     def __init__(self):
-        import anthropic  # noqa: F401  (presence check; raises ImportError if missing)
+        try:
+            import anthropic
+        except ImportError as exc:
+            raise RuntimeError("install the eval extra with pip install 'screex[eval]'") from exc
 
         if not os.environ.get("ANTHROPIC_API_KEY"):
             raise RuntimeError("ANTHROPIC_API_KEY is not set")
@@ -145,20 +148,16 @@ class ClaudeAnswerer:
             model=self.model, max_tokens=8,
             messages=[{"role": "user", "content": content}])
         text = "".join(b.text for b in resp.content if getattr(b, "type", "") == "text")
-        m = re.search(r"[A-Za-z]", text)
-        return (ord(m.group().upper()) - 65) if m else 0
+        match = re.fullmatch(r"([A-Za-z])[.)]?", text.strip())
+        if match is None:
+            return -1
+        pick = ord(match.group(1).upper()) - ord("A")
+        return pick if pick < len(choices) else -1
 
 
 def get_answerer(name: str):
-    """Return an answerer instance. Falls back to the mock (with a notice) if ``claude`` is
-    requested but unavailable, so the harness never hard-fails on a missing optional dep."""
-    if name == "claude":
-        try:
-            return ClaudeAnswerer()
-        except Exception as exc:  # ImportError or missing key
-            print(f"note: claude answerer unavailable ({exc}); falling back to mock",
-                  file=sys.stderr)
-    return MockAnswerer()
+    """Return the answerer selected for the run."""
+    return ClaudeAnswerer() if name == "claude" else MockAnswerer()
 
 
 def _load_qa(qa_path) -> list[dict]:
@@ -181,10 +180,14 @@ def _is_correct(pick: int, choices: list[str], answer: str) -> bool:
     if not 0 <= pick < len(choices):
         return False
     answer = str(answer).strip()
-    if len(answer) == 1 and answer.isalpha():
-        return chr(65 + pick).upper() == answer.upper()
-    chosen = _strip_choice_label(choices[pick]).strip()
-    return chosen == answer or answer in choices[pick]
+    if not answer:
+        return False
+    if re.fullmatch(r"[A-Za-z]", answer):
+        position = ord(answer.upper()) - ord("A")
+        if position < len(choices):
+            return pick == position
+    choice = choices[pick].strip()
+    return answer in (choice, _strip_choice_label(choice).strip())
 
 
 def _materialize_frames(recording, n: int) -> list[str]:
@@ -315,7 +318,10 @@ def main(argv=None):
     args = p.parse_args(argv)
 
     if args.qa:
-        answerer = get_answerer(args.answerer)
+        try:
+            answerer = get_answerer(args.answerer)
+        except RuntimeError as exc:
+            p.error(f"Claude answerer unavailable: {exc}")
         result = score_accuracy(
             args.qa, args.fps, args.frames, args.tokens_per_image, args.view, answerer,
             clips_dir=args.clips_dir, audio=not args.no_audio)
