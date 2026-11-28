@@ -1,3 +1,5 @@
+import pytest
+
 from screex.core.index import ScreenIndex, ScreenState
 from screex.transcript import format_transcript
 
@@ -81,3 +83,54 @@ def test_format_json_is_compact_view():
     d = json.loads(format_json(_two_state_index()))
     assert d["states"][0]["ocr_text"] == ["Open Settings"]
     assert "schema_version" in d
+
+
+@pytest.mark.parametrize("formatter_name", ["format_srt", "format_webvtt"])
+def test_subtitle_keeps_multiline_text_in_one_cue(formatter_name):
+    from screex import transcript
+
+    si = _two_state_index()
+    si.states[0].event = {"type": "error", "label": "Line one\n\nLine two"}
+    si.states[0].ocr_text = ["Open\r\n\r\nSettings"]
+    si.states[1].event = {}
+    si.states[1].ocr_text = ["\r\n  "]
+
+    output = getattr(transcript, formatter_name)(si)
+
+    assert "Error: Line one Line two — Open Settings\n\n" in output
+    assert output.endswith("\nState 1\n")
+
+
+def test_webvtt_escapes_on_screen_text():
+    from screex.transcript import format_webvtt
+
+    si = _two_state_index()
+    si.states[0].ocr_text = ['a < b & c --> d "quoted"']
+
+    output = format_webvtt(si)
+
+    assert 'a &lt; b &amp; c --&gt; d "quoted"' in output
+    assert output.startswith("WEBVTT\n\n")
+
+
+def test_empty_webvtt_has_header_separator():
+    from screex.transcript import format_webvtt
+
+    si = ScreenIndex(video="cast.mp4", duration=0.0, sampled_fps=2.0)
+
+    assert format_webvtt(si) == "WEBVTT\n\n"
+
+
+@pytest.mark.parametrize(("formatter_name", "sep"), [("format_srt", ","), ("format_webvtt", ".")])
+def test_subtitle_keeps_a_positive_duration_after_rounding(formatter_name, sep):
+    from screex import transcript
+
+    si = _two_state_index()
+    si.states[0].t_start = 0.0
+    si.states[0].t_end = 0.0001
+    si.states[1].t_start = si.states[1].t_end = 59.999
+
+    output = getattr(transcript, formatter_name)(si)
+
+    assert f"00:00:00{sep}000 --> 00:00:00{sep}001" in output
+    assert f"00:00:59{sep}999 --> 00:01:00{sep}000" in output

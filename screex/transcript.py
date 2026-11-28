@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from html import escape
 
 
 def _fmt_time(seconds) -> str:
@@ -8,14 +9,18 @@ def _fmt_time(seconds) -> str:
     return f"{s // 60}:{s % 60:02d}"
 
 
-def _ts(seconds: float, sep: str) -> str:
-    """Format seconds as HH:MM:SS<sep>mmm for SRT (sep=',') or WebVTT (sep='.')."""
-    seconds = max(0.0, float(seconds))
-    ms = int(round(seconds * 1000))
+def _ts(ms: int, sep: str) -> str:
+    """Format milliseconds as HH:MM:SS<sep>mmm for SRT or WebVTT."""
     h, ms = divmod(ms, 3_600_000)
     m, ms = divmod(ms, 60_000)
     s, ms = divmod(ms, 1000)
     return f"{h:02d}:{m:02d}:{s:02d}{sep}{ms:03d}"
+
+
+def _cue_timing(t_start: float, t_end: float, sep: str) -> str:
+    start = round(max(0.0, float(t_start)) * 1000)
+    end = max(start + 1, round(max(0.0, float(t_end)) * 1000))
+    return f"{_ts(start, sep)} --> {_ts(end, sep)}"
 
 
 def _narration_for(narration, t_start, t_end) -> str:
@@ -75,7 +80,9 @@ def _state_caption(st) -> str:
     """A one-line caption for a state, used by the SRT/WebVTT cues."""
     ev = _format_event(getattr(st, "event", None) or {})
     body = " · ".join(st.ocr_text) if st.ocr_text else ""
-    return " — ".join(p for p in (ev, body) if p) or f"State {st.idx}"
+    caption = " — ".join(p for p in (ev, body) if p)
+    line = " ".join(part.strip() for part in caption.splitlines() if part.strip())
+    return line or f"State {st.idx}"
 
 
 def format_json(screen_index) -> str:
@@ -87,19 +94,19 @@ def format_srt(screen_index) -> str:
     """Render states as SubRip (.srt) cues — one cue per UI state, timed to [t_start, t_end]."""
     blocks = []
     for n, st in enumerate(screen_index.states, start=1):
-        blocks.append(f"{n}\n{_ts(st.t_start, ',')} --> {_ts(st.t_end, ',')}\n"
-                      f"{_state_caption(st)}")
+        timing = _cue_timing(st.t_start, st.t_end, ",")
+        blocks.append(f"{n}\n{timing}\n{_state_caption(st)}")
     return "\n\n".join(blocks) + ("\n" if blocks else "")
 
 
 def format_webvtt(screen_index) -> str:
     """Render states as WebVTT (.vtt) cues — one cue per UI state."""
-    out = ["WEBVTT", ""]
+    blocks = []
     for st in screen_index.states:
-        out.append(f"{_ts(st.t_start, '.')} --> {_ts(st.t_end, '.')}")
-        out.append(_state_caption(st))
-        out.append("")
-    return "\n".join(out).rstrip() + "\n"
+        caption = escape(_state_caption(st), quote=False)
+        timing = _cue_timing(st.t_start, st.t_end, ".")
+        blocks.append(f"{timing}\n{caption}\n")
+    return "WEBVTT\n\n" + "\n".join(blocks)
 
 
 FORMATTERS = {
