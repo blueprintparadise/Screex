@@ -104,3 +104,21 @@ def test_cli_rejects_negative_limit_before_opening_input(tmp_path, capsys):
 
     assert exc.value.code == 2
     assert "--limit must be zero or greater" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("limit", [0, 1])
+def test_cli_emits_the_same_jsonl_to_stdout_and_file(tmp_path, limit, capsys):
+    conv = _load_converter()
+    source = tmp_path / "rows.json"
+    output = tmp_path / "qa.jsonl"
+    source.write_text(json.dumps(_sample_rows()), encoding="utf-8")
+    args = [str(source), "--limit", str(limit)]
+
+    conv.main(args)
+    stdout = capsys.readouterr().out
+    conv.main([*args, "--out", str(output)])
+
+    assert stdout == output.read_text(encoding="utf-8")
+    assert len(stdout.splitlines()) == limit
+    if limit:
+        assert json.loads(stdout)["clip"] == "macOS/0.mov"

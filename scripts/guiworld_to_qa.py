@@ -139,13 +139,13 @@ def main(argv=None):
 
     rows = load_rows(args.guiworld_json)
     qa, stats = convert(rows, domain=args.domain, limit=args.limit)
-    lines = "\n".join(json.dumps(item, ensure_ascii=False) for item in qa)
+    lines = "".join(json.dumps(item, ensure_ascii=False) + "\n" for item in qa)
     if args.out:
-        Path(args.out).write_text(lines + ("\n" if lines else ""), encoding="utf-8")
+        Path(args.out).write_text(lines, encoding="utf-8")
         print(f"wrote {stats['emitted']} MCQs to {args.out} "
               f"(domain={args.domain}, skipped {stats['skipped']})", file=sys.stderr)
     else:
-        print(lines)
+        sys.stdout.write(lines)
         print(f"# {stats['emitted']} MCQs, skipped {stats['skipped']}", file=sys.stderr)
 
 
