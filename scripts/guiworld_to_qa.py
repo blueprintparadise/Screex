@@ -83,6 +83,10 @@ def iter_mcqs(row: dict):
 def convert(rows, domain="desktop", limit=None):
     """Convert GUI-World rows into ``(qa_items, stats)``.
     ``domain`` filters by inferred GUI domain ('desktop'/'mobile'/'all'); ``limit`` caps output."""
+    if limit is not None and limit < 0:
+        raise ValueError("limit must be zero or greater")
+    if limit == 0:
+        return [], {"emitted": 0, "skipped": 0}
     qa, skipped = [], 0
     for row in rows:
         if not isinstance(row, dict):
@@ -128,18 +132,20 @@ def main(argv=None):
     p.add_argument("-o", "--out", default=None, help="output qa.jsonl (default: stdout)")
     p.add_argument("--domain", choices=["desktop", "mobile", "all"], default="desktop",
                    help="keep only this GUI domain (default: desktop)")
-    p.add_argument("--limit", type=int, default=None, help="cap the number of MCQs emitted")
+    p.add_argument("--limit", type=int, default=None, help="maximum MCQs to emit (zero produces empty output)")
     args = p.parse_args(argv)
+    if args.limit is not None and args.limit < 0:
+        p.error("--limit must be zero or greater")
 
     rows = load_rows(args.guiworld_json)
     qa, stats = convert(rows, domain=args.domain, limit=args.limit)
-    lines = "\n".join(json.dumps(item, ensure_ascii=False) for item in qa)
+    lines = "".join(json.dumps(item, ensure_ascii=False) + "\n" for item in qa)
     if args.out:
-        Path(args.out).write_text(lines + ("\n" if lines else ""), encoding="utf-8")
+        Path(args.out).write_text(lines, encoding="utf-8")
         print(f"wrote {stats['emitted']} MCQs to {args.out} "
               f"(domain={args.domain}, skipped {stats['skipped']})", file=sys.stderr)
     else:
-        print(lines)
+        sys.stdout.write(lines)
         print(f"# {stats['emitted']} MCQs, skipped {stats['skipped']}", file=sys.stderr)
 
 

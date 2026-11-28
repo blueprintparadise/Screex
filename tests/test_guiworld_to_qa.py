@@ -2,6 +2,8 @@ import importlib.util
 import json
 from pathlib import Path
 
+import pytest
+
 
 def _load_converter():
     path = Path(__file__).resolve().parent.parent / "scripts" / "guiworld_to_qa.py"
@@ -81,3 +83,42 @@ def test_load_rows_list_and_wrapped(tmp_path):
     w = tmp_path / "wrapped.json"
     w.write_text(json.dumps({"train": _sample_rows()}), encoding="utf-8")
     assert len(conv.load_rows(w)) == 4
+
+
+def test_convert_zero_budget_does_not_consume_input():
+    def unexpected_row():
+        pytest.fail("a zero budget consumed the first input row")
+        yield
+
+    assert _load_converter().convert(unexpected_row(), limit=0) == ([], {"emitted": 0, "skipped": 0})
+
+
+def test_convert_rejects_negative_budget():
+    with pytest.raises(ValueError, match="limit must be zero or greater"):
+        _load_converter().convert(_sample_rows(), limit=-1)
+
+
+def test_cli_rejects_negative_limit_before_opening_input(tmp_path, capsys):
+    with pytest.raises(SystemExit) as exc:
+        _load_converter().main([str(tmp_path / "missing.json"), "--limit", "-1"])
+
+    assert exc.value.code == 2
+    assert "--limit must be zero or greater" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("limit", [0, 1])
+def test_cli_emits_the_same_jsonl_to_stdout_and_file(tmp_path, limit, capsys):
+    conv = _load_converter()
+    source = tmp_path / "rows.json"
+    output = tmp_path / "qa.jsonl"
+    source.write_text(json.dumps(_sample_rows()), encoding="utf-8")
+    args = [str(source), "--limit", str(limit)]
+
+    conv.main(args)
+    stdout = capsys.readouterr().out
+    conv.main([*args, "--out", str(output)])
+
+    assert stdout == output.read_text(encoding="utf-8")
+    assert len(stdout.splitlines()) == limit
+    if limit:
+        assert json.loads(stdout)["clip"] == "macOS/0.mov"
