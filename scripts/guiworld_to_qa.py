@@ -83,6 +83,10 @@ def iter_mcqs(row: dict):
 def convert(rows, domain="desktop", limit=None):
     """Convert GUI-World rows into ``(qa_items, stats)``.
     ``domain`` filters by inferred GUI domain ('desktop'/'mobile'/'all'); ``limit`` caps output."""
+    if limit is not None and limit < 0:
+        raise ValueError("limit must be zero or greater")
+    if limit == 0:
+        return [], {"emitted": 0, "skipped": 0}
     qa, skipped = [], 0
     for row in rows:
         if not isinstance(row, dict):
