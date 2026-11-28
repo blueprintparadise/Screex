@@ -1,6 +1,7 @@
 import importlib.util
 import json
 import sys
+from contextlib import nullcontext
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock
@@ -221,7 +222,7 @@ def test_hybrid_accuracy_uses_curated_keyframe_and_charges_its_tokens(tmp_path, 
 
     monkeypatch.setattr("screex.cli.index", build_index)
     monkeypatch.setattr("screex.core.source.video_info", lambda path: {"duration": 2.0})
-    monkeypatch.setattr(eval_script, "_materialize_frames", lambda path, n: [str(uniform)])
+    monkeypatch.setattr(eval_script, "_materialize_frames", lambda path, n: nullcontext([str(uniform)]))
 
     class ImageAnswerer:
         needs_images = True
@@ -264,3 +265,16 @@ def test_eval_cli_rejects_invalid_keyframe_budget(args, message, capsys):
 
     assert exc.value.code == 2
     assert message in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("interrupted", [False, True])
+def test_uniform_images_are_scoped_to_the_consumer(moving_square_video, interrupted):
+    module = _load_eval_module()
+    with pytest.raises(RuntimeError, match="answer failed") if interrupted else nullcontext():
+        with module._materialize_frames(moving_square_video, 2) as images:
+            paths = [Path(image) for image in images]
+            assert len(paths) == 2
+            assert all(path.is_file() for path in paths)
+            if interrupted:
+                raise RuntimeError("answer failed")
+    assert not paths[0].parent.exists()

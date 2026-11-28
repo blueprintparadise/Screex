@@ -29,7 +29,10 @@ import json
 import os
 import re
 import sys
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
 # Allow running as `python scripts/eval.py` without installing the package.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -191,11 +194,8 @@ def _is_correct(pick: int, choices: list[str], answer: str) -> bool:
     return answer in (choice, _strip_choice_label(choice).strip())
 
 
-def _materialize_frames(recording, n: int) -> list[str]:
-    """Write ``n`` uniformly-spaced frames to temp PNGs and return their paths (for the
-    image-capable answerer). Returns [] if the video can't be read."""
-    import tempfile
-
+def _write_uniform_frames(recording, n: int, directory: Path) -> list[str]:
+    """Decode the recording and write the selected frames into the supplied directory."""
     import cv2
 
     from screex.core import source
@@ -206,12 +206,21 @@ def _materialize_frames(recording, n: int) -> list[str]:
     step = max(1, len(frames) // n)
     picks = frames[::step][:n]
     out = []
-    tmp = Path(tempfile.mkdtemp(prefix="screex_eval_"))
     for i, (_idx, _t, bgr) in enumerate(picks):
-        p = tmp / f"frame_{i:03d}.png"
+        p = directory / f"frame_{i:03d}.png"
         cv2.imwrite(str(p), bgr)
         out.append(str(p))
     return out
+
+
+@contextmanager
+def _materialize_frames(recording, n: int) -> Iterator[list[str]]:
+    """Keep frame paths valid while the answerer uses them."""
+    if n <= 0:
+        yield []
+        return
+    with TemporaryDirectory(prefix="screex_eval_") as directory:
+        yield _write_uniform_frames(recording, n, Path(directory))
 
 
 def score_accuracy(qa_path, fps, frames, tokens_per_image, view, answerer,
@@ -264,11 +273,10 @@ def score_accuracy(qa_path, fps, frames, tokens_per_image, view, answerer,
         idx_tokens = len(view_text) // 4 + len(curated) * tokens_per_image
 
         n_frames = min(frames, total)
-        frame_imgs = (_materialize_frames(base / clip, n_frames)
-                      if answerer.needs_images else [])
-        fr_correct = _is_correct(
-            answerer.answer(item["question"], choices, images=frame_imgs),
-            choices, answer)
+        with _materialize_frames(base / clip, n_frames if answerer.needs_images else 0) as frame_imgs:
+            fr_correct = _is_correct(
+                answerer.answer(item["question"], choices, images=frame_imgs),
+                choices, answer)
         fr_tokens = n_frames * tokens_per_image
 
         b = buckets.setdefault(qtype, {"n": 0, "idx_ok": 0, "fr_ok": 0,
