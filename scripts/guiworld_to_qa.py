@@ -132,8 +132,10 @@ def main(argv=None):
     p.add_argument("-o", "--out", default=None, help="output qa.jsonl (default: stdout)")
     p.add_argument("--domain", choices=["desktop", "mobile", "all"], default="desktop",
                    help="keep only this GUI domain (default: desktop)")
-    p.add_argument("--limit", type=int, default=None, help="cap the number of MCQs emitted")
+    p.add_argument("--limit", type=int, default=None, help="maximum MCQs to emit (zero produces empty output)")
     args = p.parse_args(argv)
+    if args.limit is not None and args.limit < 0:
+        p.error("--limit must be zero or greater")
 
     rows = load_rows(args.guiworld_json)
     qa, stats = convert(rows, domain=args.domain, limit=args.limit)

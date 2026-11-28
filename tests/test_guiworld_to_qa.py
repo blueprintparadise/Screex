@@ -96,3 +96,11 @@ def test_convert_zero_budget_does_not_consume_input():
 def test_convert_rejects_negative_budget():
     with pytest.raises(ValueError, match="limit must be zero or greater"):
         _load_converter().convert(_sample_rows(), limit=-1)
+
+
+def test_cli_rejects_negative_limit_before_opening_input(tmp_path, capsys):
+    with pytest.raises(SystemExit) as exc:
+        _load_converter().main([str(tmp_path / "missing.json"), "--limit", "-1"])
+
+    assert exc.value.code == 2
+    assert "--limit must be zero or greater" in capsys.readouterr().err
