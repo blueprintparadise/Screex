@@ -89,6 +89,10 @@ images. `--view transcript` shows the markdown step transcript to the index arm 
 compact JSON. The CLI exits with a setup error if a Claude run is missing the eval extra or the
 API key.
 
+Pass `--keyframe-budget N` in accuracy mode to attach up to `N` curated keyframes to
+the index arm and include them in its token estimate. With `--answerer mock`, the
+estimate includes the image cost and the answerer uses the text alone.
+
 ## Results Log
 
 | date | clip | fps | states | escalated images | screex tokens | baseline tokens | cost ratio | accuracy notes |

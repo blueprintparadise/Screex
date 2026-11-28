@@ -7,6 +7,8 @@ from unittest.mock import Mock
 
 import pytest
 
+import pytest
+
 from screex.core.index import ScreenIndex, ScreenState
 
 
@@ -189,3 +191,78 @@ def test_estimate_can_disable_audio_when_building(monkeypatch, tmp_path):
     )
 
     assert calls == [{"recording": "clip.mp4", "fps": 1.0, "audio": False}]
+
+
+def test_hybrid_accuracy_uses_curated_keyframe_and_charges_its_tokens(tmp_path, monkeypatch):
+    eval_script = _load_eval_module()
+    index_dir = tmp_path / "index"
+    frames_dir = index_dir / "frames"
+    frames_dir.mkdir(parents=True)
+    curated = frames_dir / "curated.png"
+    curated.write_bytes(b"curated frame")
+    uniform = tmp_path / "uniform.png"
+    uniform.write_bytes(b"uniform frame")
+    index_path = index_dir / "index.json"
+    ScreenIndex(
+        video="clip.mp4", duration=2.0, sampled_fps=2.0,
+        states=[
+            ScreenState(0, 0.0, 1.0, "t0.png", "frames/first.png", salience=0.1),
+            ScreenState(1, 1.0, 2.0, "t1.png", "frames/curated.png",
+                        ocr_text=["Settings"], salience=0.9),
+        ],
+    ).save(index_path)
+    qa_path = tmp_path / "qa.jsonl"
+    qa_path.write_text(json.dumps({
+        "clip": "clip.mp4", "type": "state", "question": "What was shown?",
+        "choices": ["Search", "Settings"], "answer": "B",
+    }), encoding="utf-8")
+
+    def build_index(path, *, fps, quiet, audio, keyframe_budget):
+        assert keyframe_budget == 1
+        return index_path
+
+    monkeypatch.setattr("screex.cli.index", build_index)
+    monkeypatch.setattr("screex.core.source.video_info", lambda path: {"duration": 2.0})
+    monkeypatch.setattr(eval_script, "_materialize_frames", lambda path, n: [str(uniform)])
+
+    class ImageAnswerer:
+        needs_images = True
+
+        def __init__(self):
+            self.calls = []
+
+        def answer(self, question, choices, text=None, images=None):
+            self.calls.append((text, images))
+            return int(text is not None)
+
+    answerer = ImageAnswerer()
+    result = eval_script.score_accuracy(
+        qa_path, fps=2.0, frames=1, tokens_per_image=1000, view="compact",
+        answerer=answerer, keyframe_budget=1,
+    )
+
+    (index_text, index_images), (frame_text, frame_images) = answerer.calls
+    assert "Settings" in index_text
+    assert index_images == [str(curated)]
+    assert frame_text is None
+    assert frame_images == [str(uniform)]
+    assert result["skipped"] == []
+    assert result["buckets"]["state"] == {
+        "n": 1, "idx_ok": 1, "fr_ok": 0,
+        "idx_tok": len(index_text) // 4 + 1000, "fr_tok": 1000,
+    }
+
+
+@pytest.mark.parametrize(("args", "message"), [
+    (["clip.mp4", "--keyframe-budget", "1"], "--keyframe-budget requires --qa"),
+    (["--qa", "qa.jsonl", "--keyframe-budget", "0"], "--keyframe-budget must be greater than 0"),
+    (["--qa", "qa.jsonl", "--keyframe-budget", "-1"], "--keyframe-budget must be greater than 0"),
+])
+def test_eval_cli_rejects_invalid_keyframe_budget(args, message, capsys):
+    eval_script = _load_eval_module()
+
+    with pytest.raises(SystemExit) as exc:
+        eval_script.main(args)
+
+    assert exc.value.code == 2
+    assert message in capsys.readouterr().err
