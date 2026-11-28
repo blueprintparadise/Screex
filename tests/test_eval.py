@@ -1,6 +1,7 @@
 import importlib.util
 import json
 import sys
+from contextlib import nullcontext
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock
@@ -221,7 +222,11 @@ def test_hybrid_accuracy_uses_curated_keyframe_and_charges_its_tokens(tmp_path, 
 
     monkeypatch.setattr("screex.cli.index", build_index)
     monkeypatch.setattr("screex.core.source.video_info", lambda path: {"duration": 2.0})
-    monkeypatch.setattr(eval_script, "_materialize_frames", lambda path, n: [str(uniform)])
+    def materialize_short_clip(path, n):
+        assert n == 2
+        return nullcontext([str(uniform)])
+
+    monkeypatch.setattr(eval_script, "_materialize_frames", materialize_short_clip)
 
     class ImageAnswerer:
         needs_images = True
@@ -235,7 +240,7 @@ def test_hybrid_accuracy_uses_curated_keyframe_and_charges_its_tokens(tmp_path, 
 
     answerer = ImageAnswerer()
     result = eval_script.score_accuracy(
-        qa_path, fps=2.0, frames=1, tokens_per_image=1000, view="compact",
+        qa_path, fps=2.0, frames=2, tokens_per_image=1000, view="compact",
         answerer=answerer, keyframe_budget=1,
     )
 
@@ -264,3 +269,50 @@ def test_eval_cli_rejects_invalid_keyframe_budget(args, message, capsys):
 
     assert exc.value.code == 2
     assert message in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("interrupted", [False, True])
+def test_uniform_images_are_scoped_to_the_consumer(moving_square_video, interrupted):
+    module = _load_eval_module()
+    with pytest.raises(RuntimeError, match="answer failed") if interrupted else nullcontext():
+        with module._materialize_frames(moving_square_video, 2) as images:
+            paths = [Path(image) for image in images]
+            assert len(paths) == 2
+            assert all(path.is_file() for path in paths)
+            if interrupted:
+                raise RuntimeError("answer failed")
+    assert not paths[0].parent.exists()
+
+
+@pytest.mark.parametrize("requested", [1, 16, 40])
+def test_uniform_sampling_covers_the_decoded_clip(moving_square_video, requested):
+    import cv2
+    import numpy as np
+
+    from screex.core.source import iter_frames
+
+    reference = [frame for _, _, frame in iter_frames(str(moving_square_video), sample_fps=0)]
+    count = min(requested, len(reference))
+    targets = np.linspace(0, len(reference) - 1, count).round().astype(int)
+    with _load_eval_module()._materialize_frames(moving_square_video, requested) as paths:
+        assert len(paths) == count
+        for path, target in zip(paths, targets):
+            np.testing.assert_array_equal(cv2.imread(path), reference[target])
+
+
+def test_failed_frame_write_releases_temporary_directory(moving_square_video, monkeypatch):
+    import cv2
+
+    attempted = []
+
+    def fail_write(path, frame):
+        attempted.append(Path(path))
+        return False
+
+    monkeypatch.setattr(cv2, "imwrite", fail_write)
+    with pytest.raises(OSError, match="could not write benchmark frame"):
+        with _load_eval_module()._materialize_frames(moving_square_video, 2):
+            pytest.fail("unwritten images reached the consumer")
+
+    assert len(attempted) == 1
+    assert not attempted[0].parent.exists()
