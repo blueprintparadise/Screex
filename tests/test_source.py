@@ -102,3 +102,17 @@ def test_capture_webcam_reports_no_frames(tmp_path, monkeypatch):
 
     writer_factory.assert_not_called()
     camera.release.assert_called_once()
+
+
+def test_sampled_timestamps_match_the_selected_video_frames(moving_square_video):
+    frames = source.iter_frames(str(moving_square_video), sample_fps=5)
+    assert [t for _, t, _ in frames] == pytest.approx([i / 5 for i in range(10)])
+
+
+@pytest.mark.parametrize(("rate", "expected_count"), [(6, 12), (12, 24), (30, 30), (0, 30)])
+def test_sampling_follows_requested_cadence(moving_square_video, rate, expected_count):
+    frames = list(source.iter_frames(str(moving_square_video), sample_fps=rate))
+    assert len(frames) == expected_count
+    effective_fps = min(rate or 15, 15)
+    for index, timestamp, _ in frames:
+        assert timestamp == pytest.approx(index / effective_fps, abs=0.5 / 15 + 1e-8)

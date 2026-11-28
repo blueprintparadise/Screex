@@ -107,6 +107,17 @@ def test_clean_frames_dir_removes_legacy_generated_files(tmp_path):
     assert list(p.name for p in frames.iterdir()) == [".screex-generated"]
 
 
+def test_analyze_exports_fractional_sampling_times(moving_square_video, tmp_path):
+    from screex.cli import main
+
+    out = tmp_path / "sampled"
+    main(["analyze", str(moving_square_video), "--fps", "6", "--max-frames", "4",
+          "--out", str(out)])
+    manifest = Manifest.load(out / "manifest.json")
+    assert manifest.sampled_fps == 6
+    assert [f.t for f in manifest.frames] == [0.0, 0.133, 0.333, 0.533]
+
+
 def test_analyze_produces_manifest_and_files(moving_square_video, tmp_path):
     out = tmp_path / "work"
     manifest_path = analyze(
