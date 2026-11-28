@@ -201,12 +201,11 @@ def _write_uniform_frames(recording, n: int, directory: Path) -> list[str]:
     from screex.core import source
 
     frames = list(source.iter_frames(str(recording), sample_fps=0))
-    if not frames or n <= 0:
-        return []
-    step = max(1, len(frames) // n)
-    picks = frames[::step][:n]
+    count = min(n, len(frames))
     out = []
-    for i, (_idx, _t, bgr) in enumerate(picks):
+    for i in range(count):
+        position = round(i * (len(frames) - 1) / (count - 1)) if count > 1 else 0
+        _, _, bgr = frames[position]
         p = directory / f"frame_{i:03d}.png"
         cv2.imwrite(str(p), bgr)
         out.append(str(p))

@@ -278,3 +278,19 @@ def test_uniform_images_are_scoped_to_the_consumer(moving_square_video, interrup
             if interrupted:
                 raise RuntimeError("answer failed")
     assert not paths[0].parent.exists()
+
+
+@pytest.mark.parametrize("requested", [1, 16, 40])
+def test_uniform_sampling_covers_the_decoded_clip(moving_square_video, requested):
+    import cv2
+    import numpy as np
+
+    from screex.core.source import iter_frames
+
+    reference = [frame for _, _, frame in iter_frames(str(moving_square_video), sample_fps=0)]
+    count = min(requested, len(reference))
+    targets = np.linspace(0, len(reference) - 1, count).round().astype(int)
+    with _load_eval_module()._materialize_frames(moving_square_video, requested) as paths:
+        assert len(paths) == count
+        for path, target in zip(paths, targets):
+            np.testing.assert_array_equal(cv2.imread(path), reference[target])
