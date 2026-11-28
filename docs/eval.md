@@ -86,7 +86,12 @@ the text view) — useful for CI and for validating the harness, but **not** a r
 For a real comparison use `--answerer claude` (needs `pip install 'screex[eval]'` and
 `ANTHROPIC_API_KEY`); the index arm sees the compact index text and the frames arm sees the sampled
 images. `--view transcript` shows the markdown step transcript to the index arm instead of the
-compact JSON.
+compact JSON. The CLI exits with a setup error if a Claude run is missing the eval extra or the
+API key.
+
+Pass `--keyframe-budget N` in accuracy mode to attach up to `N` curated keyframes to
+the index arm and include them in its token estimate. With `--answerer mock`, the
+estimate includes the image cost and the answerer uses the text alone.
 
 ## Results Log
 
