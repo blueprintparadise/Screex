@@ -207,7 +207,8 @@ def _write_uniform_frames(recording, n: int, directory: Path) -> list[str]:
         position = round(i * (len(frames) - 1) / (count - 1)) if count > 1 else 0
         _, _, bgr = frames[position]
         p = directory / f"frame_{i:03d}.png"
-        cv2.imwrite(str(p), bgr)
+        if not cv2.imwrite(str(p), bgr):
+            raise OSError(f"could not write benchmark frame {p}")
         out.append(str(p))
     return out
 

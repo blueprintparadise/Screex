@@ -298,3 +298,21 @@ def test_uniform_sampling_covers_the_decoded_clip(moving_square_video, requested
         assert len(paths) == count
         for path, target in zip(paths, targets):
             np.testing.assert_array_equal(cv2.imread(path), reference[target])
+
+
+def test_failed_frame_write_releases_temporary_directory(moving_square_video, monkeypatch):
+    import cv2
+
+    attempted = []
+
+    def fail_write(path, frame):
+        attempted.append(Path(path))
+        return False
+
+    monkeypatch.setattr(cv2, "imwrite", fail_write)
+    with pytest.raises(OSError, match="could not write benchmark frame"):
+        with _load_eval_module()._materialize_frames(moving_square_video, 2):
+            pytest.fail("unwritten images reached the consumer")
+
+    assert len(attempted) == 1
+    assert not attempted[0].parent.exists()
